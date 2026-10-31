@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="490" viewBox="0 0 1120 490" role="img" aria-label="Windows control plane and WSL2 workspace">
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto-start-reverse"><path d="M0 0L8 4L0 8" fill="none" stroke="#69dcca"/></marker></defs>
+<rect width="1120" height="490" rx="18" fill="#0c1422"/>
+<g font-family="Arial,sans-serif" fill="#edf3fc"><text x="36" y="42" font-size="22" font-weight="700">STARPORT / WINDOWS + WSL2</text>
+<rect x="32" y="76" width="480" height="300" rx="16" fill="#142034" stroke="#3f627a"/>
+<text x="56" y="111" font-size="20">Windows · trusted control plane</text>
+<g font-size="16"><text x="56" y="155">Web panel + Access + Tunnel</text><text x="56" y="195">Managed egress + model API broker</text><text x="56" y="235">Scoped compute adapter + job registry</text><text x="56" y="275">Credentials + subscriptions + SSH transport</text><text x="56" y="331" fill="#69dcca">Operator reads / writes project files</text></g>
+<rect x="660" y="76" width="428" height="300" rx="16" fill="#142034" stroke="#69dcca"/>
+<text x="684" y="111" font-size="20">WSL2 · restricted project process</text>
+<g font-size="16"><text x="684" y="155">Agent tools + project applications</text><text x="684" y="195">/workspace · private HOME · /tmp</text><text x="684" y="235">Local proxy + project compute token</text><text x="684" y="275">zh_TW.UTF-8 · Asia/Taipei</text><text x="684" y="331" fill="#69dcca">No Windows mounts or direct network route</text></g>
+<g stroke="#69dcca" fill="none" stroke-width="2" marker-end="url(#arrow)"><path d="M512 160H660"/><path d="M660 255H512"/></g>
+<g font-size="13" fill="#a8b8cf" text-anchor="middle"><text x="586" y="142">Project file operations</text><text x="586" y="281">Scoped stdio channels</text></g>
+<rect x="32" y="404" width="1056" height="52" rx="10" fill="#1c2b42"/>
+<text x="56" y="437" font-size="15">Separate mount / PID / network / user namespaces · syscall policy · proxy failure stays closed</text>
+</g></svg>

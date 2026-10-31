@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Starport · 控制中心</title><link rel="stylesheet" href="/style.css"></head>
+<body><header><span class="brand">✦ STARPORT</span><span class="sub">控制中心</span><span id="connection" class="pill">连接中</span></header>
+<main><form id="login" hidden><h1>进入控制中心</h1><label>本机访问码<input id="key" type="password" autocomplete="current-password" required></label><button>连接</button></form>
+<section id="console" hidden><div class="title"><div><p class="eyebrow">WORKSPACE CONTROL</p><h1>你的工作区，独立运行。</h1></div><button id="refresh" class="quiet">刷新</button></div>
+<div class="cards"><article><span>控制端</span><strong id="platform">—</strong><small>面板 · 网络 · 服务器</small></article><article><span>受控出口</span><strong id="egress">—</strong><button id="toggle-egress" class="quiet">暂停出口</button></article><article><span>计算服务</span><strong id="compute">—</strong><small id="capacity">—</small></article><article><span>WSL2 工作区</span><strong id="runtime">—</strong><small id="region">繁体中文 · 台北 · UTF-8</small></article></div>
+<div class="toolbar"><label>项目<select id="workspace"></select></label><button id="new-workspace" class="quiet">新建项目</button><button id="verify">验证边界</button><span id="verified" class="pill">未验证</span></div>
+<div class="columns"><section class="box"><div class="row"><h2>项目文件</h2><button id="files-refresh" class="quiet">刷新</button></div><div class="filebar"><button id="parent" class="quiet">上一级</button><code id="directory">/workspace</code></div><div class="filebar"><button id="mkdir" class="quiet">新建文件夹</button><label class="upload">上传文件<input id="upload" type="file" hidden></label></div><div id="files" class="filelist" aria-live="polite"></div></section>
+<section class="box"><h2>工作区终端</h2><form id="execute"><label>命令<textarea id="script" rows="4" spellcheck="false">pwd
+locale
+date</textarea></label><button id="run">运行</button></form><pre id="output" aria-live="polite">完成边界验证后可运行命令。</pre></section></div>
+<section class="box"><h2>服务器任务</h2><div id="jobs" class="jobs">尚无任务</div></section>
+<details class="guide"><summary>使用指引</summary><p>Windows 管理配置和项目文件。工作区只获得自己的文件、受控出口和计算接口。上传、下载均校验 SHA-256；删除仅支持文件和空文件夹。</p><p>项目内通过 STARPORT_COMPUTE_URL 和 STARPORT_COMPUTE_TOKEN 调用 /health、/jobs、任务日志、取消和产物下载。真实服务器地址与凭据由控制端保管。</p><p>当前版本提供管理和文件面板。WSLg 原生窗口、完整会话界面及 Windows 实机验收仍独立进行。</p></details></section><p id="error" role="alert"></p></main><footer>STARPORT / STARSHIP <span id="updated"></span></footer><script type="module" src="/app.js"></script></body></html>

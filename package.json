@@ -1,0 +1,22 @@
+{
+  "name": "starport-next",
+  "version": "0.2.0-local.1",
+  "private": true,
+  "type": "module",
+  "description": "Portable configuration and an isolated local agent workspace",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "starport": "bin/starport.mjs"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "node scripts/check.mjs",
+    "plan": "node bin/starport.mjs plan --config examples/desktop-dsw.json"
+  },
+  "dependencies": {
+    "jose": "6.2.14"
+  }
+}

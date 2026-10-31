@@ -1,0 +1,33 @@
+{
+  "checkedAt": "2026-10-31T19:05:07.436Z",
+  "passed": true,
+  "checks": {
+    "hostname": "starship",
+    "user": "agent",
+    "timezone": "Asia/Taipei",
+    "language": "zh_TW.UTF-8",
+    "encoding": "UTF-8",
+    "windowsMountAbsent": true,
+    "windowsInteropAbsent": true,
+    "operatorHomeAbsent": true,
+    "credentialEnvironmentAbsent": true,
+    "emptyCapabilities": true,
+    "privateProcessView": true,
+    "noDirectRoute": true,
+    "directTcpDenied": true,
+    "metadataDenied": true,
+    "directIpv6Denied": true,
+    "directDnsDenied": true,
+    "virtualHostSocketDenied": true,
+    "controlledHttps": true
+  },
+  "proxyStopped": {
+    "requestDenied": true,
+    "directStillDenied": true
+  },
+  "platform": "linux-x64",
+  "runtime": "shared-wsl-namespace-code",
+  "windowsValidated": false,
+  "accountLogin": false,
+  "cloudResourcesChanged": false
+}

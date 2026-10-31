@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="960" viewBox="0 0 1440 960" role="img" aria-labelledby="title desc">
+  <title id="title">Starport Next 架构设计</title>
+  <desc id="desc">用户通过本地入口或 Cloudflare Access 和 Tunnel 访问控制端。控制端管理项目环境和训练资源。完整 Agent 运行在项目边界内，使用只读依赖，唯一外网通道经过受控出口。</desc>
+  <defs>
+    <linearGradient id="sky" x2="1" y2="1"><stop stop-color="#0b1427"/><stop offset="1" stop-color="#142840"/></linearGradient>
+    <marker id="cyan" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10" fill="#58d5df"/></marker>
+    <marker id="gold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10" fill="#f4bf76"/></marker>
+    <style>
+      text { font-family: 'Noto Sans CJK SC','Microsoft YaHei','PingFang SC',sans-serif; }
+      .title { fill:#edf5ff;font-size:34px;font-weight:700; }
+      .h { fill:#edf5ff;font-size:25px;font-weight:650; }
+      .sub { fill:#a9bfd5;font-size:18px; }
+      .body { fill:#d2dfed;font-size:20px; }
+      .tag { fill:#66dce3;font-size:16px;letter-spacing:2px; }
+      .small { fill:#b7cbe0;font-size:17px; }
+      .line { fill:none;stroke:#58d5df;stroke-width:3;marker-end:url(#cyan); }
+      .mgmt { fill:none;stroke:#f4bf76;stroke-width:3;marker-end:url(#gold); }
+    </style>
+  </defs>
+  <rect width="1440" height="960" rx="24" fill="url(#sky)"/>
+  <g fill="#809db9" opacity=".55"><circle cx="44" cy="42" r="2"/><circle cx="1365" cy="65" r="2"/><circle cx="1020" cy="45" r="1.6"/><circle cx="754" cy="81" r="1.5"/><circle cx="1320" cy="123" r="1.3"/><circle cx="69" cy="900" r="1.5"/></g>
+  <path d="M63 67 l7 -20 7 20 20 7 -20 7 -7 20 -7 -20 -20 -7z" fill="#69dbe1"/>
+  <text x="113" y="77" class="title">STARPORT NEXT</text>
+  <text x="114" y="112" class="sub">完整智能体 · 持久项目 · 受控出口</text>
+  <text x="1330" y="76" text-anchor="end" class="tag">ARCHITECTURE / 01</text>
+
+  <rect x="52" y="162" width="310" height="199" rx="18" fill="#162b43" stroke="#38536c"/>
+  <text x="77" y="201" class="tag">USER INTERFACE</text>
+  <text x="77" y="243" class="h">电脑与手机</text>
+  <text x="77" y="280" class="body">网页工作台 · 原生界面适配</text>
+  <text x="77" y="318" class="small">会话 / 审批 / 文件 / 日志</text>
+
+  <rect x="52" y="399" width="310" height="156" rx="18" fill="#162b43" stroke="#38536c"/>
+  <text x="77" y="438" class="tag">REMOTE ENTRY</text>
+  <text x="77" y="480" class="h">Access + Tunnel</text>
+  <text x="77" y="520" class="small">身份与入口；不承担模型出站</text>
+  <path d="M206 362 V396" class="line"/>
+
+  <rect x="417" y="162" width="377" height="393" rx="18" fill="#172e46" stroke="#53748e"/>
+  <text x="443" y="201" class="tag">TRUSTED CONTROL</text>
+  <text x="443" y="244" class="h">Starport Control</text>
+  <text x="443" y="288" class="body">四步向导 / 加密配置导入</text>
+  <text x="443" y="325" class="body">私有凭据 / 节点生命周期</text>
+  <line x1="443" y1="351" x2="768" y2="351" stroke="#3d5b76"/>
+  <text x="443" y="391" class="h">Session Broker</text>
+  <text x="443" y="430" class="body">唯一执行者 / 幂等发送</text>
+  <text x="443" y="468" class="body">后台事件 / 断线追赶</text>
+  <text x="443" y="520" class="small">管理信息不进入 Agent 上下文</text>
+  <path d="M363 476 H413" class="line"/>
+  <path d="M363 260 H413" class="line"/>
+
+  <rect x="850" y="162" width="538" height="563" rx="20" fill="#11263a" stroke="#6f8ba0" stroke-dasharray="8 6"/>
+  <text x="878" y="201" class="tag">COMPUTE NODE / LOCAL RUNTIME</text>
+  <text x="878" y="243" class="h">Starship</text>
+  <text x="1050" y="242" class="small">受信节点管理与资源回收</text>
+  <path d="M795 267 H846" class="mgmt"/>
+  <text x="819" y="301" text-anchor="middle" fill="#f4bf76" font-size="15">管理</text>
+
+  <rect x="877" y="279" width="484" height="296" rx="16" fill="#173c45" stroke="#59d4cc" stroke-width="2"/>
+  <text x="901" y="315" class="tag">WHOLE-AGENT BOUNDARY</text>
+  <text x="901" y="358" class="h">持久项目环境</text>
+  <text x="901" y="397" class="body">Claude Code / Agent SDK</text>
+  <text x="901" y="434" class="body">文件 · Shell · MCP · 插件 · 浏览器</text>
+  <text x="901" y="479" class="body">项目 SSH / SFTP</text>
+  <text x="901" y="518" class="small">项目可写；宿主文件与网络不可访问</text>
+  <text x="901" y="551" class="small">固定环境变量；出站仅经受控接口</text>
+
+  <rect x="877" y="599" width="232" height="99" rx="12" fill="#20334b" stroke="#536c86"/>
+  <text x="898" y="638" class="body">依赖 / 模型 / 数据</text>
+  <text x="898" y="673" class="small">版本化 · 只读 · 租约</text>
+  <rect x="1128" y="599" width="233" height="99" rx="12" fill="#20334b" stroke="#536c86"/>
+  <text x="1149" y="638" class="body">独立计算任务</text>
+  <text x="1149" y="673" class="small">CPU / GPU / 内存</text>
+  <path d="M993 597 V579" class="line"/>
+  <path d="M1246 577 V595" class="line"/>
+
+  <rect x="417" y="625" width="377" height="224" rx="18" fill="#273044" stroke="#f4bf76"/>
+  <text x="443" y="665" fill="#f4bf76" font-size="16" letter-spacing="2">CONTROLLED EGRESS</text>
+  <text x="443" y="708" class="h">统一网络出口</text>
+  <text x="443" y="750" class="body">主备节点 / 验证 / 事务回滚</text>
+  <text x="443" y="789" class="body">出口失效 → 保持断网</text>
+  <text x="443" y="824" class="small">不依赖 Agent 自觉遵守代理设置</text>
+  <path d="M605 557 V621" class="mgmt"/>
+  <path d="M877 534 H822 V731 H798" class="line"/>
+
+  <rect x="850" y="768" width="538" height="81" rx="15" fill="#162b43" stroke="#38536c"/>
+  <text x="883" y="817" class="body">模型 API · 依赖源 · 允许访问的外部服务</text>
+  <path d="M795 808 H846" class="line"/>
+
+  <line x1="52" y1="889" x2="1388" y2="889" stroke="#2b445d"/>
+  <text x="53" y="925" class="small">电脑 + DSW / 单机 / 服务器托管</text>
+  <text x="1388" y="925" text-anchor="end" class="small">入口、控制、执行、出站各自拥有清楚的边界</text>
+</svg>

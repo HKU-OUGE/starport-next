@@ -1,0 +1,76 @@
+{
+  "format": "starport-config",
+  "version": 1,
+  "topology": "desktop-dsw",
+  "ui": {
+    "language": "zh-CN",
+    "advancedCollapsed": true
+  },
+  "paths": {
+    "state": "state",
+    "cache": "cache",
+    "exports": "exports"
+  },
+  "engine": {
+    "kind": "claude-agent-sdk",
+    "providerRef": "secret://model-provider",
+    "model": "select-at-setup",
+    "effort": "high"
+  },
+  "network": {
+    "mode": "required",
+    "failClosed": true,
+    "directFallback": false,
+    "policyOwner": "control",
+    "subscriptionRefs": [
+      "secret://primary-subscription"
+    ],
+    "selectionRef": "secret://node-selection",
+    "denyHostNetwork": true,
+    "dns": "via-egress",
+    "ipv6": "blocked",
+    "udp": "blocked"
+  },
+  "nodes": [
+    {
+      "id": "compute-a",
+      "transport": "dsw",
+      "connectionRef": "secret://compute-a-connection",
+      "runtime": "linux-gvisor",
+      "budget": {
+        "cpus": 8,
+        "memoryGiB": 32,
+        "gpus": [
+          0
+        ]
+      }
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "training",
+      "release": "v1",
+      "mount": "dependencies",
+      "readonly": true
+    }
+  ],
+  "access": {
+    "kind": "local",
+    "policyRef": null,
+    "credentialRef": null
+  },
+  "execution": {
+    "scope": "whole-agent",
+    "hostShell": false,
+    "hostMounts": false,
+    "importHostEnv": false
+  },
+  "lifecycle": {
+    "resumeIdleStopped": "ask",
+    "autoStart": "ask"
+  },
+  "extensions": {
+    "stagedRef": null,
+    "enableAfterReview": false
+  }
+}
