@@ -68,8 +68,12 @@ Windows 整机冷启动或实际注销重登验收。
 见 [MULTI-SERVER.md](MULTI-SERVER.md)。域名／邮箱／Access／Tunnel 的本机配置页已提供，
 见 [REMOTE-ACCESS.md](REMOTE-ACCESS.md)；云端自动创建和真实公网邮箱登录须单独验收。
 Windows／WSL2 下两台真实服务器的 MCP 任务、隔离、产物与释放已验证，记录见
-[双服务器验收](verification/multi-server-panel.json)。外部依赖挂载目前仅有
-[设计与边界说明](DEPENDENCIES.md)，具体目录尚未登记或挂载。
+[双服务器验收](verification/multi-server-panel.json)。[依赖与数据复用](DEPENDENCIES.md)
+已支持逐节点登记、后台快照发布、MCP 按版本只读挂载与停用。环境兼容性需逐个实测，
+目录发布成功不等于 Python／Conda 或实际数据集已验证。
+两台服务器的空目录挂载、只读拒绝、停用和 MCP 产物验证已通过，见
+[依赖复用验收](verification/dependency-reuse.json)。自动 Conda 识别已提供；当前没有可接入
+环境，真实解释器与包导入仍待具体环境验收。
 
 服务器任务支持资源概况、项目／状态／文本筛选、增量日志、校验后的产物下载和取消。
 只操作本安装登记的任务；未知提交保留待核对状态，不自动重放。资源显示区分节点可用

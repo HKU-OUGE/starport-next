@@ -118,9 +118,25 @@ real job per added machine. Never turn an unknown submission into a retry on ano
 node. Register each workerComputeFile with the login supervisor and verify per-node
 health; do not equate synthetic multi-node tests with multiple live servers.
 For external dependency reuse, read [DEPENDENCIES.md](../../docs/DEPENDENCIES.md).
-Archive reuse is implemented; arbitrary dependency mounts are not. Obtain the
-chosen node and directory before mounting, and do not claim a symlink or mount alias
-hides paths embedded in package files or mount metadata.
+Use the local panel's Dependencies and Data page to select a node, name, kind and
+specific directory. Review contents first: every project in this installation can
+read published releases. Publication snapshots with reflink or a copy fallback,
+hashes content and mounts pinned versions read-only; it does not install packages,
+follow live mutable sources or certify Python compatibility. Do not choose a real
+source without user direction; an owned empty fixture is sufficient when requested.
+Verify compute_resources discovery, exact IDs/digests in mounts, denied writes,
+absence of host paths in mountinfo, and disable rejecting new selections while
+preserving already submitted jobs. Keep fixture receipts and source paths private.
+When the user authorizes automatic Conda reuse, use Auto Reuse Conda on the chosen
+node. It reads user registration and known prefixes, never searches other users
+or shared disks recursively, and reuses existing publishing/ready registrations.
+If none are found, ask for the specific personal prefix; do not claim adoption or
+install a replacement environment. Base caches/sub-environments are excluded.
+Python/Conda requires an isolated interpreter/import test: external symlinks are
+rejected and scripts/binaries may retain prefixes. Do not mount the whole host
+system or execute model code in management SSH to make it work. No symlink, alias,
+or source-prefix byte scan proves content hides identity. Report empty-folder
+acceptance separately from actual environment or real dataset acceptance.
 
 For domain/email settings, follow [REMOTE-ACCESS.md](../../docs/REMOTE-ACCESS.md).
 Use the local panel's Remote Access page for an existing Cloudflare application.

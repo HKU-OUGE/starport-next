@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { error,writePrivate,read } from '../runtime/common.mjs';
 import { nodeId,connectionBinding } from './compute-nodes.mjs';
+import { publicResources } from './resources.mjs';
 
 const same=(a,b)=>{const x=Buffer.from(a||''),y=Buffer.from(b||'');return x.length===y.length&&crypto.timingSafeEqual(x,y);};
 const jobId=v=>typeof v==='string'&&/^[a-f0-9]{32}$/.test(v);
@@ -11,7 +12,7 @@ export function projectPath(p){return typeof p==='string'&&p.length<=512&&!/[\\\
 const safeCode=v=>typeof v==='string'&&/^[a-z][a-z0-9_]{0,79}$/.test(v)?v:'compute_operation_failed';
 const publicFields=(v,names)=>Object.fromEntries(names.filter(n=>v?.[n]!==undefined).map(n=>[n,v[n]]));
 const statusFields=['status','created_at','started_at','finished_at','exit_code','failure_phase','last_control_heartbeat_at','resources_released','cancel'];
-const configFields=['entry','args','gpus','cpus','memory_gib','timeout','language','environment','backend'];
+const configFields=['entry','args','gpus','cpus','memory_gib','timeout','language','environment','backend','mounts','python_environment'];
 export function publicJob(value){
   const out=publicFields(value,statusFields);
   if(jobId(value?.id))out.id=value.id;
@@ -88,15 +89,34 @@ export async function createCompute({state,connection,connections,defaultNode,fe
       summary:{configured:list.length,ready:ready.length,accepting:rows.filter(n=>n.acceptingNewJobs).length,
         cpus:ready.reduce((s,n)=>s+(n.limits?.server_max_cpus||0),0),memory_gib:ready.reduce((s,n)=>s+(n.limits?.server_max_memory_gib||0),0),gpus:ready.reduce((s,n)=>s+(n.limits?.server_max_gpus||0),0)}};
   }
+  async function resources(node=defaultNode){
+    if(!node)throw error('compute_node_required');
+    const r=await upstream(node,'GET','/resources'),v=await r.json();
+    if(!r.ok)throw error(safeCode(v.error));return {node,...publicResources(v)};
+  }
+  async function manageResource(node,action,input){
+    if(!nodeId(node)||!['register','disable','auto-conda'].includes(action))throw error('invalid_resource_action');
+    if(action==='disable'&&!jobId(input?.id))throw error('invalid_resource_id');
+    const route=action==='register'?'/resources':action==='auto-conda'?'/resources/auto-conda':'/resources/'+input.id+'/disable';
+    const r=await upstream(node,'POST',route,action==='register'?input:{}),v=await r.json();
+    if(!r.ok)throw error(safeCode(v.error));
+    if(action==='auto-conda')return {node,found:v.found,created:v.created,failures:(v.failures||[]).map(r=>({name:r.name,error:safeCode(r.error)})),...publicResources(v)};
+    return {node,...publicResources({resources:[v]}).resources[0]};
+  }
   const server=http.createServer(async(req,res)=>{
     let scope;for(const [workspace,token] of tokens)if(same(req.headers.authorization,'Bearer '+token))scope=workspace;
     if(!scope||req.headers.origin)return jsonResponse(res,401,{error:'project_capability_required'});
     const url=new URL(req.url,'http://project.invalid'),parts=url.pathname.split('/').filter(Boolean);
     try{
       if(req.method==='GET'&&url.pathname==='/health')return jsonResponse(res,200,await health());
+      if(req.method==='GET'&&url.pathname==='/resources'){
+        if([...url.searchParams.keys()].some(k=>k!=='node'))throw error('invalid_query');
+        const value=await resources(url.searchParams.get('node')||defaultNode);
+        return jsonResponse(res,200,{...value,resources:value.resources.filter(r=>r.phase==='ready')});
+      }
       if(req.method==='GET'&&url.pathname==='/jobs')return jsonResponse(res,200,{jobs:Object.entries(registry).filter(([,v])=>v.workspace===scope).map(([id,v])=>view(id,v))});
       if(req.method==='POST'&&url.pathname==='/jobs'){
-        const d=await bodyJson(req);const allowed=['files','entry','args','timeout','target','node','gpus','cpus','memory_gib','distributed','environment','backend','dependency_layer','data_ids','queue_timeout','setup_timeout','language'];
+        const d=await bodyJson(req);const allowed=['files','entry','args','timeout','target','node','gpus','cpus','memory_gib','distributed','environment','backend','dependency_layer','data_ids','queue_timeout','setup_timeout','language','mounts','python_environment'];
         if(!d||Array.isArray(d)||Object.keys(d).some(k=>!allowed.includes(k))||!d.files||Array.isArray(d.files)||Object.keys(d.files).length>1000||Object.keys(d.files).some(p=>!projectPath(p)))throw error('invalid_job_request');
         if(d.entry&&!projectPath(d.entry))throw error('invalid_entry');
         if(d.args&&(!Array.isArray(d.args)||d.args.some(a=>typeof a!=='string'||a.includes('\0'))))throw error('invalid_arguments');
@@ -143,7 +163,7 @@ export async function createCompute({state,connection,connections,defaultNode,fe
     }catch(e){if(res.headersSent)res.destroy();else return jsonResponse(res,e.code==='job_outside_project'?403:503,{error:safeCode(e.code)});}
   });
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
-  return {port:server.address().port,health,capability(workspace){if(!tokens.has(workspace))tokens.set(workspace,crypto.randomBytes(32).toString('hex'));return tokens.get(workspace);},
+  return {port:server.address().port,health,resources,manageResource,capability(workspace){if(!tokens.has(workspace))tokens.set(workspace,crypto.randomBytes(32).toString('hex'));return tokens.get(workspace);},
     jobs:()=>Object.entries(registry).map(([id,v])=>view(id,v)),
     admission(id,paused){if(!nodes.has(id)||typeof paused!=='boolean')throw error('invalid_node_admission');settings.nodes[id].paused=paused;writePrivate(settingsFile,settings);return {id,paused};},
     close(){tokens.clear();server.closeAllConnections();server.close();}};

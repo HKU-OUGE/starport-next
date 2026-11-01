@@ -1,14 +1,14 @@
-const titles={overview:'总览',servers:'计算服务器',tasks:'服务器任务',workspaces:'项目工作区',clients:'Claude 工具',services:'服务注册',remote:'远程访问',configuration:'配置迁移',help:'使用帮助'};
+const titles={overview:'总览',servers:'计算服务器',tasks:'服务器任务',dependencies:'依赖与数据',workspaces:'项目工作区',clients:'Claude 工具',services:'服务注册',remote:'远程访问',configuration:'配置迁移',help:'使用帮助'};
 const aliases={'task-center':'tasks','service-center':'services','workspace-tools':'workspaces'};
 export function viewName(hash){const key=String(hash||'').replace(/^#/,'');return aliases[key]|| (Object.hasOwn(titles,key)?key:'overview');}
 export function initShell(){
   let status,lastView,ready=false;
   function render(){
     let view=viewName(location.hash);
-    if(status?.control.remote!=='local'&&['services','remote','configuration'].includes(view))view='overview';
+    if(status?.control.remote!=='local'&&['services','remote','configuration','dependencies'].includes(view))view='overview';
     for(const section of document.querySelectorAll('[data-page]'))section.hidden=!section.dataset.page.split(' ').includes(view);
     for(const link of document.querySelectorAll('#sidebar-nav a')){
-      link.hidden=status?.control.remote!=='local'&&['services','remote','configuration'].includes(link.dataset.view);
+      link.hidden=status?.control.remote!=='local'&&['services','remote','configuration','dependencies'].includes(link.dataset.view);
       const selected=link.dataset.view===view;link.classList.toggle('active',selected);
       if(selected)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
     }

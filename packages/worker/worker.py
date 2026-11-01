@@ -215,6 +215,7 @@ def submit(cfg,request):
         folder=pathlib.Path(cfg['state'])/'datasets'/identity(did)
         if folder.is_symlink() or not (folder/'manifest.json').is_file():raise ValueError('dataset_not_found')
     with lock(cfg):
+        mounts=resource_selection(cfg,request.get('mounts',[]))
         active=[r for _,r in records(cfg) if not r.get('released')]
         if any(r['workspace']==wid for r in active):raise ValueError('workspace_busy')
         parallel=cfg.get('max_parallel',4)
@@ -234,7 +235,7 @@ def submit(cfg,request):
         jid=uuid.uuid4().hex;p=pathlib.Path(cfg['state'])/'jobs'/jid;p.mkdir(mode=0o700)
         state={'id':jid,'workspace':wid,'status':'queued','created_at':time.time(),**values,
             'cpu_indices':free[:values['cpus']],'gpu_indices':gpu[:values['gpus']],'released':False,'log_start':0,'log_end':0}
-        save(p/'request.json',{'command':command,'datasets':datasets});save(p/'status.json',state)
+        save(p/'request.json',{'command':command,'datasets':datasets,'mounts':mounts});save(p/'status.json',state)
         proc=subprocess.Popen([sys.executable,'-I',str(ROOT/'worker.py'),'run',jid],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,env={'PATH':'/usr/bin:/bin'})
         state['controller_pid']=proc.pid;state['controller_stamp']=process_stamp(proc.pid);save(p/'status.json',state)
         return public_status(state)
@@ -260,6 +261,10 @@ def specification(cfg,p,state):
         mounts.append(bind(cfg['egress_socket'],'/run/starport/egress.sock'))
     for did in request['datasets']:
         mounts.append(bind(pathlib.Path(cfg['state'])/'datasets'/did/'payload','/data/shared/'+did))
+    # A disabled release remains available to jobs that already pinned it.
+    for row in resource_selection(cfg,request.get('mounts',[]),existing=True):
+        meta=read_json(resource_folder(cfg,row['id'])/'record.json')
+        mounts.append(bind(resource_folder(cfg,row['id'])/'payload',resource_public(meta)['path']))
     devices=[]
     if state['gpus']:
         for row in cfg['driver_files']:
@@ -373,14 +378,202 @@ def publish(cfg,wid,name):
     except BaseException:shutil.rmtree(folder);raise
 
 
+def resource_folder(cfg,rid):
+    root=pathlib.Path(cfg['state'])/'resources'
+    if root.is_symlink():raise ValueError('invalid_resource_store')
+    folder=root/identity(rid)
+    if folder.is_symlink():raise ValueError('invalid_resource_store')
+    return folder
+
+
+def resource_public(row):
+    keys=['id','name','kind','phase','version','bytes','files','created_at','error','copy_mode','embedded_source_paths','python_entry']
+    return {**{k:row[k] for k in keys if k in row},'readonly':True,
+            'path':('/dependencies/' if row['kind']=='python' else '/datasets/')+row['id'],
+            'compatibility':'unverified' if row['kind']=='python' else 'not-applicable'}
+
+
+def resource_list(cfg):
+    root=pathlib.Path(cfg['state'])/'resources'
+    if not root.exists():return {'resources':[]}
+    if root.is_symlink():raise ValueError('invalid_resource_store')
+    rows=[]
+    with lock(cfg):
+        for p in sorted(root.iterdir()):
+            if not re.fullmatch('[a-f0-9]{32}',p.name):continue
+            row=read_json(resource_folder(cfg,p.name)/'record.json')
+            if row['phase']=='publishing' and (not row.get('publisher_stamp') or process_stamp(row.get('publisher_pid'))!=row['publisher_stamp']):
+                row.update(phase='failed',error='resource_publication_interrupted');save(p/'record.json',row)
+            rows.append(resource_public(row))
+    return {'resources':rows}
+
+
+def resource_selection(cfg,values,existing=False):
+    if not isinstance(values,list) or len(values)>16:raise ValueError('invalid_resource_selection')
+    result=[];seen=set()
+    for value in values:
+        if not isinstance(value,dict) or set(value)!={'id','version'}:raise ValueError('invalid_resource_selection')
+        folder=resource_folder(cfg,value['id'])
+        if value['id'] in seen:raise ValueError('duplicate_resource')
+        seen.add(value['id'])
+        if not (folder/'record.json').exists():raise ValueError('resource_not_found')
+        row=read_json(folder/'record.json')
+        if row['phase'] not in (['ready','disabled'] if existing else ['ready']):raise ValueError('resource_not_ready')
+        if value['version']!=row['version'] or digest(folder/'manifest.json')!=row['version']:raise ValueError('resource_version_changed')
+        if (folder/'payload').is_symlink() or not (folder/'payload').is_dir():raise ValueError('invalid_resource_store')
+        result.append({'id':value['id'],'version':row['version']})
+    return result
+
+
+def resource_register(cfg,r):
+    rid=identity(r.get('id'));source=r.get('source');name=r.get('name');kind=r.get('kind')
+    if kind not in ['python','data'] or not isinstance(name,str) or not 1<=len(name)<=64 or any(ord(c)<32 for c in name):raise ValueError('invalid_resource_metadata')
+    if not isinstance(source,str) or len(source)>1024 or not source.startswith('/') or '\\' in source or any(ord(c)<32 for c in source):raise ValueError('invalid_resource_source')
+    p=pathlib.Path(source)
+    if str(p)!=source or '..' in p.parts or len(p.parts)<3:raise ValueError('resource_source_too_broad')
+    if source in ['/usr/local','/usr/lib','/usr/lib64','/usr/local/lib','/usr/bin','/usr/sbin','/var/lib','/var/run','/mnt/data','/mnt/workspace'] or p.parent==pathlib.Path('/home'):raise ValueError('resource_source_too_broad')
+    blocked=[pathlib.Path('/proc'),pathlib.Path('/sys'),pathlib.Path('/dev'),pathlib.Path('/etc'),pathlib.Path('/run'),ROOT,pathlib.Path(cfg['state'])]
+    if p==pathlib.Path.home() or any(p==b or p.is_relative_to(b) or b.is_relative_to(p) for b in blocked):raise ValueError('resource_source_forbidden')
+    # No symlink component, including the selected source's parents.
+    with directory('/',p.parts[1:]):pass
+    folder=resource_folder(cfg,rid)
+    with lock(cfg):
+        if folder.exists():raise ValueError('resource_id_exists_check_catalog')
+        folder.mkdir(parents=True,mode=0o700)
+        row={'id':rid,'name':name,'kind':kind,'source':source,'phase':'publishing','created_at':time.time()}
+        save(folder/'record.json',row)
+        try:
+            proc=subprocess.Popen([sys.executable,'-I',str(ROOT/'worker.py'),'publish-resource',rid],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,start_new_session=True,env={'PATH':'/usr/bin:/bin'})
+            row.update(publisher_pid=proc.pid,publisher_stamp=process_stamp(proc.pid));save(folder/'record.json',row)
+        except OSError:
+            row.update(phase='failed',error='resource_publication_start_failed');save(folder/'record.json',row)
+        return resource_public(row)
+
+
+def resource_publish(cfg,rid):
+    folder=resource_folder(cfg,rid);row=read_json(folder/'record.json');source=pathlib.Path(row['source']);payload=folder/'payload'
+    try:
+        payload.mkdir(mode=0o700);entries=[];total=0;cloned=0;copied=0;embedded=0
+        needle=str(source).encode()
+        sensitive={'.ssh','.aws','.azure','.kube','.git','.netrc','.npmrc','.pypirc','.condarc','pip.conf','credentials.json','token.json'}
+        def visit(fd,dest,parts=()):
+            nonlocal total,cloned,copied,embedded
+            before=os.fstat(fd)
+            for name in sorted(os.listdir(fd)):
+                if not parts and row['kind']=='python' and (source/'conda-meta').is_dir() and name in ['pkgs','envs']:continue
+                relative(name)
+                if name in sensitive:raise ValueError('resource_sensitive_entry_review_required')
+                if len(entries)>=cfg.get('resource_max_entries',100000):raise ValueError('resource_entry_capacity')
+                rel='/'.join((*parts,name));st=os.stat(name,dir_fd=fd,follow_symlinks=False);target=dest/name
+                if st.st_dev!=before.st_dev:raise ValueError('resource_nested_mount_not_allowed')
+                if stat.S_ISDIR(st.st_mode):
+                    child=os.open(name,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd)
+                    try:
+                        target.mkdir(mode=0o700);entries.append({'path':rel,'type':'directory'});visit(child,target,(*parts,name));target.chmod(0o555)
+                    finally:os.close(child)
+                elif stat.S_ISLNK(st.st_mode):
+                    link=os.readlink(name,dir_fd=fd)
+                    absolute=os.path.normpath(link if link.startswith('/') else str(source.joinpath(*parts,link)))
+                    if not pathlib.Path(absolute).is_relative_to(source):raise ValueError('resource_external_symlink')
+                    link=os.path.relpath(absolute,str(source.joinpath(*parts)))
+                    target.symlink_to(link);entries.append({'path':rel,'type':'symlink','target':link})
+                elif stat.S_ISREG(st.st_mode):
+                    total+=st.st_size
+                    if total>cfg.get('resource_max_bytes',4*1024**4):raise ValueError('resource_byte_capacity')
+                    handle=os.open(name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=fd)
+                    with os.fdopen(handle,'rb') as src,target.open('xb+') as dst:
+                        if not stat.S_ISREG(os.fstat(src.fileno()).st_mode):raise ValueError('resource_changed')
+                        try:fcntl.ioctl(dst.fileno(),0x40049409,src.fileno());cloned+=1
+                        except OSError as exc:
+                            if exc.errno not in [errno.EOPNOTSUPP,errno.ENOTTY,errno.EXDEV,errno.EINVAL,errno.ENOSYS]:raise
+                            dst.truncate(0);shutil.copyfileobj(src,dst,1024*1024);copied+=1
+                        dst.flush();dst.seek(0);h=hashlib.sha256();tail=b'';found=False
+                        for chunk in iter(lambda:dst.read(1024*1024),b''):
+                            h.update(chunk);found=found or needle in tail+chunk;tail=chunk[-len(needle):]
+                        embedded+=int(found)
+                        end=os.fstat(src.fileno())
+                        if (st.st_ino,st.st_size,st.st_mtime_ns,st.st_ctime_ns)!=(end.st_ino,end.st_size,end.st_mtime_ns,end.st_ctime_ns) or dst.tell()!=st.st_size:raise ValueError('resource_changed')
+                        os.fchmod(dst.fileno(),0o555 if st.st_mode&0o111 else 0o444)
+                    entries.append({'path':rel,'type':'file','bytes':st.st_size,'sha256':h.hexdigest(),'executable':bool(st.st_mode&0o111)})
+                else:raise ValueError('resource_special_file_not_allowed')
+            after=os.fstat(fd)
+            if (before.st_ino,before.st_mtime_ns,before.st_ctime_ns)!=(after.st_ino,after.st_mtime_ns,after.st_ctime_ns):raise ValueError('resource_changed')
+        with directory('/',source.parts[1:]) as fd:visit(fd,payload)
+        payload.chmod(0o555)
+        # Symlinks may form chains; validate the completed, private snapshot too.
+        for item in entries:
+            if item['type']=='symlink':
+                target=(payload/item['path']).resolve(strict=True)
+                if not target.is_relative_to(payload):raise ValueError('resource_external_symlink')
+        manifest={'kind':row['kind'],'entries':entries};save(folder/'manifest.json',manifest)
+        python_entry=next((n for n in ['bin/python','bin/python3'] if (payload/n).is_file() and os.access(payload/n,os.X_OK)),None)
+        with lock(cfg):
+            row=read_json(folder/'record.json');row.update(phase='ready',version=digest(folder/'manifest.json'),bytes=total,files=sum(e['type']=='file' for e in entries),embedded_source_paths=embedded,
+                copy_mode='reflink' if cloned and not copied else 'mixed' if cloned else 'copy',python_entry=python_entry)
+            save(folder/'record.json',row)
+    except Exception as exc:
+        with lock(cfg):
+            row=read_json(folder/'record.json');row.update(phase='failed',error=str(exc) if isinstance(exc,ValueError) and re.fullmatch('[a-z_]+',str(exc)) else 'resource_publication_failed');save(folder/'record.json',row)
+
+
+def resource_disable(cfg,rid):
+    with lock(cfg):
+        folder=resource_folder(cfg,rid);row=read_json(folder/'record.json')
+        if row['phase']=='publishing':raise ValueError('resource_publication_in_progress')
+        row['phase']='disabled';save(folder/'record.json',row);return resource_public(row)
+
+
+def conda_candidates():
+    """Read user registration and known prefixes, never traverse a shared disk."""
+    home=pathlib.Path.home();found=set();roots=[home/n for n in ['.conda','miniconda3','anaconda3','miniforge3','mambaforge','micromamba']]
+    roots+=[home/'.local/share/mamba',pathlib.Path('/opt/conda'),pathlib.Path('/opt/miniconda3')]
+    index=home/'.conda/environments.txt'
+    if index.is_file() and not index.is_symlink() and index.stat().st_size<1024*1024:
+        found.update(pathlib.Path(line.strip()) for line in index.read_text().splitlines() if line.strip().startswith('/'))
+    for root in roots:
+        if (root/'conda-meta').is_dir():found.add(root)
+        envs=root/'envs'
+        if envs.is_dir() and not envs.is_symlink():
+            with os.scandir(envs) as entries:
+                for i,entry in enumerate(entries):
+                    if i>=128:break
+                    if entry.is_dir(follow_symlinks=False):found.add(pathlib.Path(entry.path))
+    return [p for p in sorted(found) if not p.is_symlink() and (p/'conda-meta').is_dir() and (p/'bin/python').is_file()][:32]
+
+
+def resource_auto_conda(cfg):
+    with (pathlib.Path(cfg['state'])/'resource-auto.lock').open('a') as guard:
+        try:fcntl.flock(guard,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError:raise ValueError('resource_discovery_busy') from None
+        candidates=conda_candidates();result=[];created=0;failures=[]
+        root=pathlib.Path(cfg['state'])/'resources'
+        existing=[]
+        if root.exists():
+            for p in root.iterdir():
+                if re.fullmatch('[a-f0-9]{32}',p.name) and not p.is_symlink():existing.append(read_json(p/'record.json'))
+        for source in candidates:
+            prior=next((r for r in existing if r.get('source')==str(source) and r.get('kind')=='python' and r.get('phase') in ['publishing','ready']),None)
+            if prior:result.append(resource_public(prior));continue
+            try:
+                result.append(resource_register(cfg,{'id':uuid.uuid4().hex,'name':source.name[:64],'kind':'python','source':str(source)}));created+=1
+            except (ValueError,OSError) as exc:
+                failures.append({'name':source.name[:64],'error':str(exc) if isinstance(exc,ValueError) and re.fullmatch('[a-z_]+',str(exc)) else 'resource_registration_failed'})
+        return {'found':len(candidates),'created':created,'resources':result,'failures':failures}
+
+
 def dispatch(cfg,r):
     op=r.get('operation')
     schemas={'health':set(),'egress.reset':set(),'workspace.create':set(),'file.read':{'path','offset','size'},'file.write':{'path','content'},
-        'file.list':{'path'},'job.submit':{'command','cpus','memory_gib','gpus','timeout','datasets'},
+        'file.list':{'path'},'job.submit':{'command','cpus','memory_gib','gpus','timeout','datasets','mounts'},
+        'resource.list':set(),'resource.register':{'id','name','kind','source'},'resource.disable':{'id'},'resource.auto_conda':set(),
         'job.status':{'job'},'job.logs':{'job','cursor'},'job.cancel':{'job'},'job.artifacts':{'job'},
         'artifact.read':{'job','path','offset','size','version'},'dataset.publish':{'path'},'dataset.list':set(),
         'upload.begin':{'path','bytes','sha256'},'upload.chunk':{'upload','offset','data','sha256'},'upload.finish':{'upload'}}
     if op not in schemas or set(r)-schemas[op]-{'operation','workspace'}:raise ValueError('unsupported_operation')
+    if op=='resource.list':return resource_list(cfg)
+    if op=='resource.register':return resource_register(cfg,r)
+    if op=='resource.disable':return resource_disable(cfg,r.get('id'))
+    if op=='resource.auto_conda':return resource_auto_conda(cfg)
     if op=='egress.reset':
         # Trusted operator RPC only. A workload never receives the management key.
         with lock(cfg):
@@ -509,6 +702,7 @@ def dispatch(cfg,r):
 def main():
     cfg=configuration()
     if sys.argv[1:] and sys.argv[1]=='run':run_job(cfg,identity(sys.argv[2]));return
+    if sys.argv[1:] and sys.argv[1]=='publish-resource':resource_publish(cfg,identity(sys.argv[2]));return
     try:
         data=sys.stdin.buffer.read(LIMIT+1)
         if len(data)>LIMIT:raise ValueError('request_too_large')

@@ -34,11 +34,14 @@ TOOLS = [
     tool('compute_guide', 'Read the project remote-compute workflow and constraints before submitting a task.', obj(), True),
     tool('compute_health', 'List servers by node ID, readiness and individual CPU/GiB/GPU limits. Inspect nodes before submission; aggregate capacity cannot be requested as one job.', obj(), True),
     tool('compute_jobs', 'List this project\'s jobs, including unknown submissions. Reconcile before any retry.', obj(), True),
+    tool('compute_resources', 'List published read-only dependency/data releases on one server. Use exact id and version in compute_submit mounts. Paths are inside the remote task; Python compatibility is unverified.', obj({'node': {'type': 'string', 'pattern': '^[a-z][a-z0-9-]{0,47}$'}}), True),
     tool('compute_submit', 'Submit ONE remote isolated Python/Bash job. Returns a job ID; save it immediately. Never retry an unknown outcome. Inputs appear in remote /workspace; write artifacts under /output. No SSH or host execution.',
          obj({'entry': STRING, 'node': {'type': 'string', 'pattern': '^[a-z][a-z0-9-]{0,47}$'}, 'files': {'type': 'object', 'additionalProperties': STRING},
               'local_files': {'type': 'array', 'items': STRING, 'maxItems': 16},
               'args': {'type': 'array', 'items': STRING, 'maxItems': 128},
               'language': {'type': 'string', 'enum': ['python', 'bash']},
+              'mounts': {'type': 'array', 'maxItems': 16, 'items': obj({'id': JOB, 'version': {'type': 'string', 'pattern': '^[a-f0-9]{64}$'}}, ['id','version'])},
+              'python_environment': JOB,
               'cpus': {'type': 'integer', 'minimum': 1}, 'memory_gib': {'type': 'integer', 'minimum': 1},
               'gpus': {'type': 'integer', 'minimum': 0}, 'timeout': {'type': 'integer', 'minimum': 1}}, ['entry'])),
     tool('compute_status', 'Poll one job and inspect resources_released, exit_code and artifact names.', obj({'job': JOB}, ['job']), True),
@@ -139,6 +142,8 @@ class Compute:
             return {'guide': GUIDE}
         if name in ('compute_health', 'compute_jobs'):
             return self.request('/' + name.removeprefix('compute_'))
+        if name == 'compute_resources':
+            return self.request('/resources'+('?node='+urllib.parse.quote(args['node'],safe='') if args.get('node') else ''))
         if name == 'compute_submit':
             files = {}
             for key, value in args.get('files', {}).items():

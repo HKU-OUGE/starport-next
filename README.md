@@ -21,6 +21,7 @@ Windows 优先采用 **主系统管理网络与服务器，WSL2 执行项目程�
 
 面板采用左侧导航，支持[多服务器](docs/MULTI-SERVER.md)分别监控、筛选任务和暂停接单。
 [远程访问页](docs/REMOTE-ACCESS.md)可设置已有 Cloudflare Access 的域名、邮箱和 Tunnel。
+[依赖与数据](docs/DEPENDENCIES.md)页可发布环境、数据目录的固定只读版本，供 Claude 任务选择。
 服务器任务面板提供资源概况、筛选、日志、产物下载和取消；服务页可注册 Windows
 登录启动。Claude Code／Desktop 通过项目计算 MCP 接入远端任务，项目内自动生成
 `AGENTS.md` 和 `CLAUDE.md`。配置页可加密导出、预览并导入到新配置；不自动切换当前安装。

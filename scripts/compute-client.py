@@ -30,12 +30,15 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     sub=p.add_subparsers(dest='action',required=True)
     for name in ['health','jobs']: sub.add_parser(name)
+    resources=sub.add_parser('resources');resources.add_argument('--node')
     submit=sub.add_parser('submit')
     submit.add_argument('entry');submit.add_argument('--file',action='append',default=[])
     submit.add_argument('--cpus',type=int,default=1);submit.add_argument('--memory-gib',type=int,default=2)
     submit.add_argument('--gpus',type=int,default=0);submit.add_argument('--timeout',type=int,default=120)
     submit.add_argument('--language',choices=['python','bash'],default='python')
     submit.add_argument('--node',help='Compute server ID from health.nodes')
+    submit.add_argument('--mount',action='append',default=[],metavar='ID:VERSION',help='Pinned release from resources (repeatable)')
+    submit.add_argument('--python-environment',help='Selected Python release ID; must also appear in --mount')
     submit.add_argument('--arg',action='append',default=[])
     for name in ['status','logs','cancel','download']:
         child=sub.add_parser(name);child.add_argument('job')
@@ -43,6 +46,9 @@ def main():
         if name=='download':child.add_argument('artifact');child.add_argument('output')
     a=p.parse_args()
     if a.action in ['health','jobs']:result=request('/'+a.action)
+    elif a.action=='resources':
+        from urllib.parse import quote
+        result=request('/resources'+('?node='+quote(a.node,safe='') if a.node else ''))
     elif a.action=='submit':
         root=pathlib.Path.cwd().resolve();files={}
         for name in dict.fromkeys([a.entry,*a.file]):
@@ -50,8 +56,12 @@ def main():
             if file.is_absolute() or '..' in file.parts or not file.resolve().is_relative_to(root):raise RuntimeError('project_relative_file_required')
             if not file.is_file() or file.stat().st_size>16*1024*1024:raise RuntimeError('invalid_job_file')
             files[file.as_posix()]=base64.b64encode(file.read_bytes()).decode()
-        result=request('/jobs',{'entry':pathlib.Path(a.entry).as_posix(),'files':files,'args':a.arg,
-            'cpus':a.cpus,'memory_gib':a.memory_gib,'gpus':a.gpus,'timeout':a.timeout,'language':a.language,**({'node':a.node} if a.node else {})})
+        import re
+        if any(not re.fullmatch('[a-f0-9]{32}:[a-f0-9]{64}',m) for m in a.mount):raise RuntimeError('invalid_resource_selection')
+        mounts=[dict(zip(['id','version'],m.split(':'))) for m in a.mount]
+        result=request('/jobs',{'entry':pathlib.Path(a.entry).as_posix(),'files':files,'args':a.arg,'mounts':mounts,
+            'cpus':a.cpus,'memory_gib':a.memory_gib,'gpus':a.gpus,'timeout':a.timeout,'language':a.language,**({'node':a.node} if a.node else {}),
+            **({'python_environment':a.python_environment} if a.python_environment else {})})
     else:
         import re
         if not re.fullmatch('[a-f0-9]{32}',a.job):raise RuntimeError('invalid_job_id')

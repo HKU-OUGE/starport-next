@@ -15,6 +15,7 @@ Windows/WSL2 control plane with optional WSLg clients. Consult
 - Independent remote compute and Claude task usage: [COMPUTE.md](docs/COMPUTE.md).
 - Windows login startup and owned service supervision: [SERVICES.md](docs/SERVICES.md).
 - Multiple compute nodes and fixed job ownership: [MULTI-SERVER.md](docs/MULTI-SERVER.md).
+- Read-only dependency/data publication: [DEPENDENCIES.md](docs/DEPENDENCIES.md).
 - Local domain/email configuration and public acceptance: [REMOTE-ACCESS.md](docs/REMOTE-ACCESS.md).
 
 Keep the operator control plane outside the whole-agent workspace. A native

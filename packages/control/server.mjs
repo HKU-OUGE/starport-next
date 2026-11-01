@@ -69,7 +69,7 @@ export async function startHostControl(state,options={}){
       res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');
       try{
         const policy=access.policy(req),url=new URL(req.url,'http://control.invalid');
-        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/style.css'].includes(url.pathname)){
+        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/style.css'].includes(url.pathname)){
           if(policy.mode==='cloudflare')await access.authenticate(req,policy);
           const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
           res.writeHead(200,{'content-type':name.endsWith('.js')?'text/javascript; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/html; charset=utf-8','cache-control':'no-store'});
@@ -83,6 +83,18 @@ export async function startHostControl(state,options={}){
         }
         const identity=await access.authenticate(req,policy);
         if(req.method!=='GET')access.check(req,policy,identity);
+        if(['/api/resources','/api/resources/disable','/api/resources/auto-conda'].includes(url.pathname)){
+          if(policy.mode!=='local')throw error('local_resource_action_required');
+          if(req.method==='GET'&&url.pathname==='/api/resources')return json(res,200,await compute.resources(url.searchParams.get('node')||undefined));
+          if(req.method==='POST'){
+            const b=await bodyJson(req,8192);
+            if(!b||Array.isArray(b))throw error('invalid_resource_registration');
+            const {node,reviewed,...input}=b;
+            if(!url.pathname.endsWith('/disable')&&reviewed!==true)throw error('resource_content_review_required');
+            return json(res,200,await compute.manageResource(node,url.pathname.endsWith('/disable')?'disable':url.pathname.endsWith('/auto-conda')?'auto-conda':'register',input));
+          }
+          throw error('unknown_route');
+        }
         if(url.pathname==='/api/remote-access'||url.pathname==='/api/remote-access/check'){
           if(policy.mode!=='local')throw error('local_remote_settings_required');
           if(req.method==='GET'&&url.pathname==='/api/remote-access')return json(res,200,remoteSettings.snapshot());

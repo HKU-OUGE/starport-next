@@ -5,6 +5,7 @@ import crypto from 'node:crypto';
 import http from 'node:http';
 import {privateDir,writePrivate,read,error} from '../runtime/common.mjs';
 import {bodyJson,jsonResponse,projectPath} from './compute.mjs';
+import {publicResources,mountSelection} from './resources.mjs';
 
 const id=v=>typeof v==='string'&&/^[a-f0-9]{32}$/.test(v);
 const code=e=>/^[a-z][a-z0-9_]{1,79}$/.test(e?.message||'')?e.message:'worker_compute_failed';
@@ -16,8 +17,8 @@ export function workerJob(v){
     finished_at:v.ended_at,exit_code:v.exit_code,resources_released:v.released===true,
     ...(v.error?{error:code({message:v.error})}:{})};
 }
-export function workerRequest(value,limits){
-  const allowed=['files','entry','args','cpus','memory_gib','gpus','timeout','language'];
+export function workerRequest(value,limits,catalog=[]){
+  const allowed=['files','entry','args','cpus','memory_gib','gpus','timeout','language','mounts','python_environment'];
   if(!value||Array.isArray(value)||Object.keys(value).some(k=>!allowed.includes(k)))throw error('worker_compute_unsupported_request');
   const files=value.files;
   if(!files||typeof files!=='object'||Array.isArray(files)||!Object.keys(files).length||Object.keys(files).length>16||!projectPath(value.entry)||!Object.hasOwn(files,value.entry))throw error('invalid_job_files');
@@ -32,8 +33,16 @@ export function workerRequest(value,limits){
   for(const [key,n] of Object.entries(resources))if(!Number.isInteger(n)||n<(key==='gpus'?0:1)||n>limits[key])throw error('compute_resource_limit');
   const language=value.language??'python';
   if(!['python','bash'].includes(language))throw error('unsupported_job_language');
-  const executable=language==='python'?'python3':'bash';
-  return {files:decoded,resources,command:[executable,'/workspace/'+value.entry,...args].map(quote).join(' '),config:{entry:value.entry,args,...resources,language}};
+  const mounts=mountSelection(value.mounts),selected=mounts.map(m=>{
+    const row=catalog.find(r=>r.id===m.id&&r.version===m.version&&r.phase==='ready');if(!row)throw error('resource_not_ready');return row;
+  });
+  let executable=language==='python'?'python3':'bash';
+  if(value.python_environment!==undefined){
+    const env=selected.find(r=>r.id===value.python_environment&&r.kind==='python');
+    if(language!=='python'||!env||!['bin/python','bin/python3'].includes(env.python_entry))throw error('python_environment_unavailable');
+    executable='/dependencies/'+env.id+'/'+env.python_entry;
+  }
+  return {files:decoded,resources,mounts,command:[executable,'/workspace/'+value.entry,...args].map(quote).join(' '),config:{entry:value.entry,args,...resources,language,mounts,...(value.python_environment?{python_environment:value.python_environment}:{})}};
 }
 
 export async function createWorkerComputeBridge({state,token,binding,remoteFactory,limits,port=0}){
@@ -62,7 +71,9 @@ export async function createWorkerComputeBridge({state,token,binding,remoteFacto
     const value=workerJob(await remoteFactory(row.workspace).call('job.status',{job}));row.cached=value;save();return value;
   }
   async function submit(input){
-    const request=workerRequest(input,limits);
+    const selected=mountSelection(input?.mounts);
+    const catalog=selected.length?publicResources(await remoteFactory().call('resource.list')).resources:[];
+    const request=workerRequest(input,limits,catalog);
     if(pending)throw error('compute_submission_busy');
     pending++;
     let receipt;
@@ -86,7 +97,7 @@ export async function createWorkerComputeBridge({state,token,binding,remoteFacto
         if(done.sha256!==sha(b)||done.bytes!==b.length)throw error('upload_integrity');
       }
       receipt.phase='submitting';save();
-      const result=await remote.call('job.submit',{command:request.command,...request.resources});
+      const result=await remote.call('job.submit',{command:request.command,...request.resources,mounts:request.mounts});
       if(!id(result.id))throw error('invalid_job_response');
       const value=workerJob(result);
       db.jobs[result.id]={workspace:created.id,config:request.config,cached:value};receipt.job=result.id;receipt.phase='complete';save();
@@ -101,6 +112,19 @@ export async function createWorkerComputeBridge({state,token,binding,remoteFacto
     const u=new URL(req.url,'http://bridge.invalid'),parts=u.pathname.split('/').filter(Boolean);
     try{
       if(req.method==='GET'&&u.pathname==='/health')return jsonResponse(res,200,await health());
+      if(req.method==='GET'&&u.pathname==='/resources')return jsonResponse(res,200,publicResources(await remoteFactory().call('resource.list')));
+      if(req.method==='POST'&&u.pathname==='/resources/auto-conda'){
+        await bodyJson(req,1024);const v=await remoteFactory().call('resource.auto_conda');
+        return jsonResponse(res,200,{found:v.found,created:v.created,failures:(v.failures||[]).map(r=>({name:r.name,error:code({message:r.error})})),...publicResources(v)});
+      }
+      if(req.method==='POST'&&u.pathname==='/resources'){
+        const b=await bodyJson(req,8192);
+        if(!b||Array.isArray(b)||Object.keys(b).sort().join(',')!=='id,kind,name,source')throw error('invalid_resource_registration');
+        const row=await remoteFactory().call('resource.register',b);return jsonResponse(res,202,publicResources({resources:[row]}).resources[0]);
+      }
+      if(req.method==='POST'&&parts.length===3&&parts[0]==='resources'&&id(parts[1])&&parts[2]==='disable'){
+        await bodyJson(req,1024);const row=await remoteFactory().call('resource.disable',{id:parts[1]});return jsonResponse(res,200,publicResources({resources:[row]}).resources[0]);
+      }
       if(req.method==='POST'&&u.pathname==='/jobs')return jsonResponse(res,201,await submit(await bodyJson(req,24*1024*1024)));
       if(parts[0]!=='jobs'||!id(parts[1])||!db.jobs[parts[1]])throw error('job_not_found');
       const job=parts[1],row=db.jobs[job],remote=remoteFactory(row.workspace);

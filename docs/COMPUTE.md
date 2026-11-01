@@ -82,8 +82,8 @@ WSL2 原生客户端启动时自动运行 `configure-compute.py`，在项目中�
 冲突会停止并要求核对。`CLAUDE.md` 通过 `@AGENTS.md` 加载统一说明，而非拼写为 `agnet.md`。
 
 Claude Code 和 Desktop Code 页使用 `/workspace` 项目。Desktop Chat 使用本地 stdio MCP，
-不依赖它自动读取项目 Markdown。八个工具为 `compute_guide`、`compute_health`、
-`compute_jobs`、`compute_submit`、`compute_status`、`compute_logs`、`compute_cancel`、
+不依赖它自动读取项目 Markdown。九个工具为 `compute_guide`、`compute_health`、
+`compute_jobs`、`compute_resources`、`compute_submit`、`compute_status`、`compute_logs`、`compute_cancel`、
 `compute_download`。工具的初始化说明也包含同一份使用指引。支持直接传入 UTF-8 脚本内容，
 因此 Desktop Chat 不需要另一个本地 Shell 工具来创建任务文件。
 
@@ -143,3 +143,7 @@ python3 starport_compute.py cancel JOB_ID
 详情可手动刷新；关闭网页不会取消任务。浏览器下载上限为 64 MiB，worker 分块校验后由
 控制端对完整传输计算 SHA-256，浏览器再次核对摘要和大小。较大产物使用项目计算客户端。
 旧 worker 产物清单只有大小时也可下载，不要求改写已有任务。
+
+依赖与数据可在本机面板逐服务器发布固定只读版本，MCP 通过 `compute_resources` 发现，
+提交时使用 `mounts` 和可选 `python_environment`。兼容性、内容范围与停用语义见
+[依赖复用](DEPENDENCIES.md)。

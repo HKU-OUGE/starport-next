@@ -22,11 +22,11 @@ export function workerSshArgs(c,connectionFile,{forward=false}={}){
 export class WorkerRemote{
   constructor(connection,connectionFile,workspace){this.connection=connection;this.connectionFile=connectionFile;this.workspace=workspace;}
   async call(operation,parameters={}){
-    const readOnly=['health','job.status','job.logs','job.artifacts','artifact.read'];
-    const allowed=[...readOnly,'egress.reset','workspace.create','job.submit','job.cancel','upload.begin','upload.chunk','upload.finish'];
+    const readOnly=['health','resource.list','job.status','job.logs','job.artifacts','artifact.read'];
+    const allowed=[...readOnly,'resource.register','resource.disable','resource.auto_conda','egress.reset','workspace.create','job.submit','job.cancel','upload.begin','upload.chunk','upload.finish'];
     if(!allowed.includes(operation))throw error('unsupported_worker_operation');
     const body={...parameters,operation};
-    if(!['health','egress.reset','workspace.create'].includes(operation)){if(!/^[a-f0-9]{32}$/.test(this.workspace||''))throw error('worker_workspace_required');body.workspace=this.workspace;}
+    if(!['health','egress.reset','workspace.create','resource.list','resource.register','resource.disable','resource.auto_conda'].includes(operation)){if(!/^[a-f0-9]{32}$/.test(this.workspace||''))throw error('worker_workspace_required');body.workspace=this.workspace;}
     let result;
     try{result=await run(executable('ssh'),[...workerSshArgs(this.connection,this.connectionFile),'python3 -I "$HOME/.local/share/starport-next-worker/worker.py" rpc'],{input:JSON.stringify(body),timeout:45000,maxBytes:8*1024*1024});}
     catch{throw error(readOnly.includes(operation)?'worker_unavailable':'worker_outcome_unknown');}

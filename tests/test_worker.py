@@ -27,6 +27,66 @@ worker=module('worker',BASE/'packages/worker/worker.py')
 
 
 class WorkerTests(unittest.TestCase):
+    def resource(self,kind='data',prepare=None):
+        source=tempfile.TemporaryDirectory();self.addCleanup(source.cleanup);p=pathlib.Path(source.name)
+        if prepare:prepare(p)
+        rid=worker.uuid.uuid4().hex
+        with patch.object(worker.subprocess,'Popen') as process:
+            process.return_value.pid=os.getpid()
+            worker.resource_register(self.cfg,{'id':rid,'name':'Test release','kind':kind,'source':str(p)})
+        worker.resource_publish(self.cfg,rid)
+        return p,worker.read_json(worker.resource_folder(self.cfg,rid)/'record.json')
+    def test_resource_snapshot_and_disable_preserve_pinned_release(self):
+        source,row=self.resource(prepare=lambda p:(p/'data.txt').write_text('original'))
+        self.assertEqual(row['phase'],'ready');payload=worker.resource_folder(self.cfg,row['id'])/'payload'
+        (source/'data.txt').write_text('updated')
+        self.assertEqual((payload/'data.txt').read_text(),'original')
+        public=worker.resource_list(self.cfg)['resources'][0]
+        self.assertNotIn('source',public);self.assertNotIn('publisher_pid',public)
+        selection=[{'id':row['id'],'version':row['version']}]
+        self.assertEqual(worker.resource_selection(self.cfg,selection),selection)
+        worker.resource_disable(self.cfg,row['id'])
+        with self.assertRaisesRegex(ValueError,'resource_not_ready'):worker.resource_selection(self.cfg,selection)
+        self.assertEqual(worker.resource_selection(self.cfg,selection,existing=True),selection)
+        with self.assertRaisesRegex(ValueError,'resource_version_changed'):worker.resource_selection(self.cfg,[{**selection[0],'version':'0'*64}],existing=True)
+    def test_resource_empty_and_internal_links(self):
+        _,empty=self.resource();self.assertEqual((empty['phase'],empty['bytes'],empty['files']),('ready',0,0))
+        def prepare(p):
+            (p/'bin').mkdir();(p/'bin/python3').write_text('fixture');(p/'bin/python3').chmod(0o755)
+            (p/'bin/python').symlink_to(p/'bin/python3')
+            (p/'metadata').write_text(str(p))
+        source,row=self.resource('python',prepare)
+        self.assertEqual(row['phase'],'ready');self.assertEqual(row['python_entry'],'bin/python');self.assertEqual(row['embedded_source_paths'],1)
+        self.assertEqual(os.readlink(worker.resource_folder(self.cfg,row['id'])/'payload/bin/python'),'python3')
+        self.assertEqual((source/'bin/python').resolve(),source/'bin/python3')
+    def test_resource_escapes_secrets_special_files_and_broad_sources_rejected(self):
+        for prepare,code in [(lambda p:(p/'link').symlink_to('/etc/passwd'),'resource_external_symlink'),
+                             (lambda p:(p/'.ssh').mkdir(),'resource_sensitive_entry_review_required'),
+                             (lambda p:os.mkfifo(p/'pipe'),'resource_special_file_not_allowed')]:
+            _,row=self.resource(prepare=prepare);self.assertEqual(row['phase'],'failed');self.assertEqual(row['error'],code)
+        for source in ['/', '/home', '/usr','/usr/local','/usr/bin','/mnt/data','/mnt/workspace','/run/user', '/etc/ssl', str(pathlib.Path.home()),str(self.root),str(self.ws)]:
+            with self.assertRaises(ValueError):worker.resource_register(self.cfg,{'id':'a'*32,'name':'bad','kind':'data','source':source})
+        with self.assertRaisesRegex(ValueError,'invalid_resource_selection'):worker.resource_selection(self.cfg,[{'id':'a'*32,'version':'b'*64,'source':'/private'}])
+    def test_resource_publisher_interruption_is_reconciled_without_retry(self):
+        source=tempfile.TemporaryDirectory();self.addCleanup(source.cleanup)
+        with patch.object(worker.subprocess,'Popen') as process:
+            process.return_value.pid=99999999
+            worker.resource_register(self.cfg,{'id':'a'*32,'name':'interrupted','kind':'data','source':source.name})
+        row=worker.resource_list(self.cfg)['resources'][0]
+        self.assertEqual(row['phase'],'failed');self.assertEqual(row['error'],'resource_publication_interrupted')
+        with self.assertRaisesRegex(ValueError,'resource_id_exists'):worker.resource_register(self.cfg,{'id':'a'*32,'name':'interrupted','kind':'data','source':source.name})
+    def test_conda_auto_reuses_registered_release_without_executing_environment(self):
+        temp=tempfile.TemporaryDirectory();self.addCleanup(temp.cleanup);home=pathlib.Path(temp.name)
+        env=home/'miniforge3';(env/'conda-meta').mkdir(parents=True);(env/'bin').mkdir();(env/'bin/python').write_text('not executable host code')
+        (env/'pkgs').mkdir();(env/'pkgs/private').write_text('package cache not published');(env/'envs').mkdir()
+        with patch.object(worker.pathlib.Path,'home',return_value=home),patch.object(worker.subprocess,'Popen') as process:
+            process.return_value.pid=os.getpid();first=worker.resource_auto_conda(self.cfg);second=worker.resource_auto_conda(self.cfg)
+        self.assertEqual(first['found'],1);self.assertEqual(first['created'],1);self.assertEqual(second['created'],0)
+        self.assertEqual(first['resources'][0]['id'],second['resources'][0]['id']);self.assertNotIn('source',first['resources'][0])
+        self.assertEqual(process.call_count,1)
+        rid=first['resources'][0]['id'];worker.resource_publish(self.cfg,rid)
+        self.assertEqual(worker.read_json(worker.resource_folder(self.cfg,rid)/'record.json')['phase'],'ready')
+        self.assertFalse((worker.resource_folder(self.cfg,rid)/'payload/pkgs').exists())
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.root=pathlib.Path(self.temp.name)
         for d in ['workspaces','jobs','datasets','uploads']:(self.root/d).mkdir()

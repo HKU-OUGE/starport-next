@@ -1,6 +1,7 @@
 import {initOperations} from './operations.js';
 import {initShell} from './shell.js';
 import {initRemoteSettings} from './remote.js';
+import {initResources} from './resources.js';
 const $=id=>document.getElementById(id);let status,csrf='',folder='',selected='',polling=false,connectionError=false,sdkRunning=false;
 const errors={authentication_required:'请输入本机访问码。',workspace_verification_required:'请先完成工作区边界验证。',wsl_runtime_requires_windows:'当前主机不是 Windows；WSL2 实机验证待完成。',controlled_proxy_not_running:'受控代理未启动，请配置订阅和节点。',workspace_busy:'该项目正在执行操作，请稍后重试。',workspace_operations_active:'请等待当前工作区操作完成后再验证。',enable_controlled_egress_first:'请先配置并启用受控出口。'};
 function problem(e){$('error').textContent=errors[e.message]||e.message;}
@@ -10,6 +11,7 @@ const action=(button,fn)=>button.addEventListener('click',async()=>{button.disab
 const shell=initShell();
 const operations=initOperations({api,problem,action,el});
 initRemoteSettings({api,problem,action});
+initResources({api,problem,action});
 Object.assign(errors,{compute_unavailable:'计算连接暂时不可用。',compute_outcome_unknown_check_before_retry:'提交结果待核对，请勿重复提交。',job_already_finished:'任务已经结束。',job_operation_pending:'任务操作尚未返回，请稍后刷新。',service_registration_failed:'服务注册未完成，请检查本机日志。',artifact_integrity_mismatch:'下载校验失败，请重新获取产物。',panel_artifact_too_large_use_compute_client:'此产物超过 64 MiB，请使用项目计算客户端下载。'});
 Object.assign(errors,{password_requires_12_to_1024_characters:'口令必须为 12 至 1024 个字符。',profile_password_or_integrity_failed:'口令不正确或配置包已损坏。',profile_destination_exists:'已有同名配置，请换一个名称。',configuration_preview_required:'请重新预览配置后再导入。',invalid_profile_name:'配置名称须以小写字母开头，只使用小写字母、数字和连字符，最多 48 字符。',encrypted_profile_required:'含连接或凭据的配置必须使用加密包。',configuration_operation_busy:'另一项配置操作正在进行，请稍后重试。'});
 async function refresh(){if(polling)return;polling=true;try{status=await api('/api/status');if(connectionError){$('error').textContent='';connectionError=false;}csrf=status.csrf;$('login').hidden=true;$('console').hidden=false;$('connection').textContent='已连接';$('connection').className='pill good';$('platform').textContent={win32:'Windows',linux:'Linux',darwin:'macOS'}[status.control.platform]||status.control.platform;$('egress').textContent=status.egress.enabled?'已连接':'已关闭';$('toggle-egress').textContent=status.egress.enabled?'暂停出口':'恢复出口';$('compute').textContent=`${status.compute.summary?.ready??0} / ${status.compute.summary?.configured??0} 就绪`;$('capacity').textContent=status.compute.summary?.ready?`${status.compute.summary.cpus} CPU · ${status.compute.summary.memory_gib} GiB · ${status.compute.summary.gpus} GPU`:'等待服务器连接';$('runtime').textContent=status.runtime.installed?'已安装':'待安装';$('updated').textContent='后台检查 '+(status.control.updatedAt?new Date(status.control.updatedAt).toLocaleTimeString():'—');

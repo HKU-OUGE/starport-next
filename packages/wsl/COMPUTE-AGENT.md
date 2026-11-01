@@ -15,6 +15,19 @@ Claude Code 和 Desktop 的 Code 页应打开 `/workspace`；Desktop Chat 使用
 
 工具只连接项目计算 API。不要使用管理 SSH，不读取或输出环境令牌、客户端登录凭据、云凭据。MCP 不需要这些秘密作为参数。不要把项目 HOME 当作任务输入。
 
-Claude Code 也可通过 Bash 使用 `python3 /opt/starport/compute-client.py`，命令为 `health`、`jobs`、`submit`、`status`、`logs`、`cancel`、`download`。提交用 `--node SERVER_ID` 选择服务器。运行 `--help` 查看参数。模型 API 计费与远端资源配额是不同约束。
+复用依赖／数据时先调用 `compute_resources`，指定同一个 `node`。将 `id` 和完整 `version`
+放入 `compute_submit.mounts`，例如 `[{"id":"返回的ID","version":"返回的版本摘要"}]`。
+每次最多 16 个版本。环境位于 `/dependencies/<ID>`，数据位于 `/datasets/<ID>`，均为只读。
+这些路径只存在于该远端任务中，不是本机 WSL 路径。新增包、缓存与输出写到 `/workspace`、
+`/tmp` 或 `/output`。目录内内容对本安装的所有项目可读。
+
+可选 `python_environment: "ID"` 会用已选环境的 `bin/python` 或 `bin/python3` 运行入口；
+必须同时在 mounts 中选择该 Python 版本。发布不代表兼容：先运行小型 import 检查，确认
+解释器、系统动态库与二进制包可用。纯库目录可在任务脚本中设置相应的 `sys.path`／
+`PYTHONPATH`；不要添加宿主路径、请求管理 SSH，或在宿主执行环境修复。只读不隐藏
+包内原始路径或敏感内容；目录外软链接会在发布时拒绝。缺少依赖时报告具体失败并让操作员
+准备新的中性路径版本。停用后的版本不再接受新任务，已有任务继续使用提交时的固定版本。
+
+Claude Code 也可通过 Bash 使用 `python3 /opt/starport/compute-client.py`，命令为 `health`、`resources`、`jobs`、`submit`、`status`、`logs`、`cancel`、`download`。提交用 `--node SERVER_ID` 选择服务器、`--mount ID:VERSION` 选择复用版本，可选 `--python-environment ID`。运行 `--help` 查看参数。模型 API 计费与远端资源配额是不同约束。
 
 示例：先检查容量，再提交一个 1 CPU、2 GiB、0 GPU、60 秒任务，内容为 `print('hello'); open('/output/result.txt','w').write('ok')`。保存 ID，确认完成并释放，然后下载并读取 `result.txt`。GPU 任务需要在 submit 中明确指定 `gpus`。

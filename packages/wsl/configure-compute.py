@@ -80,7 +80,7 @@ def configure(workspace=pathlib.Path('/workspace'), home=pathlib.Path('/home/age
     block(workspace / 'CLAUDE.md', '@AGENTS.md')
     write(workspace / 'STARPORT_COMPUTE.md', guide)
     write(home / '.local/state/starport/compute-capability.json', json.dumps({'url': url, 'token': token}))
-    return {'configured': True, 'mcpServer': 'starport-compute', 'tools': 8, 'accountLoginVerified': False}
+    return {'configured': True, 'mcpServer': 'starport-compute', 'tools': 9, 'accountLoginVerified': False}
 
 
 if __name__ == '__main__':

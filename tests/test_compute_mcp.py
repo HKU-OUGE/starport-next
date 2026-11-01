@@ -39,7 +39,7 @@ class ComputeMcpTests(unittest.TestCase):
         output = list(map(json.loads, p.stdout.splitlines()))
         self.assertEqual([x['id'] for x in output], [1, 2, 3])
         self.assertEqual(output[0]['result']['protocolVersion'], '2025-06-18')
-        self.assertEqual(len(output[1]['result']['tools']), 8)
+        self.assertEqual(len(output[1]['result']['tools']), 9)
         self.assertIn('compute_submit', output[2]['result']['content'][0]['text'])
         self.assertEqual(p.stderr, '')
 
@@ -63,6 +63,16 @@ class ComputeMcpTests(unittest.TestCase):
                 with self.assertRaises((ValueError, OSError)):
                     self.compute.call('compute_submit', args)
             request.assert_not_called()
+
+    def test_resource_discovery_and_pinned_selection(self):
+        mounts=[{'id':'a'*32,'version':'b'*64}]
+        with patch.object(self.compute,'request',return_value={}) as request:
+            self.compute.call('compute_resources',{'node':'cpu-1'})
+            request.assert_called_with('/resources?node=cpu-1')
+            self.compute.call('compute_submit',{'entry':'x.py','files':{'x.py':'pass'},'mounts':mounts,'python_environment':'a'*32})
+            self.assertEqual(request.call_args.args[1]['mounts'],mounts)
+            self.assertEqual(request.call_args.args[1]['python_environment'],'a'*32)
+            with self.assertRaises(ValueError):self.compute.call('compute_submit',{'entry':'x.py','files':{'x.py':'pass'},'mounts':[{'source':'/host'}]})
 
     def test_download_proves_bytes_and_refuses_overwrite_or_escape(self):
         with patch.object(self.compute, 'request', return_value=b'verified\n') as request:

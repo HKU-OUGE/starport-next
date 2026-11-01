@@ -1,0 +1,66 @@
+{
+  "checkedOn": "2026-11-01",
+  "platform": "windows-host-wsl2",
+  "implementation": {
+    "perNodeLocalPanelRegistration": true,
+    "backgroundImmutableSnapshots": true,
+    "reflinkWithCopyFallback": true,
+    "pinnedReadOnlyTaskMounts": true,
+    "automaticCondaDiscovery": "user-registry-and-known-prefixes-only",
+    "sourcePathsExcludedFromProjectCatalog": true,
+    "projectCannotRegisterOrDisable": true,
+    "configurationExportContainsSnapshots": false
+  },
+  "liveAcceptance": {
+    "physicalServers": 2,
+    "fixtures": "owned-empty-python-and-data-directories",
+    "mcpToolsDiscovered": 9,
+    "perNodeMcpSubmitStatusLogsDownload": true,
+    "emptyDirectoriesVisible": true,
+    "writesDenied": true,
+    "guestAliasesPreserved": true,
+    "sourcePathsAbsentFromMountinfo": true,
+    "hostSshDirectoryAbsent": true,
+    "disabledReleaseHiddenFromNewCatalog": true,
+    "disabledReleaseRejectsNewSubmission": true,
+    "submittedTaskContinuesAfterDisable": true,
+    "allAcceptanceJobsReleased": true,
+    "allFixtureReleasesDisabled": true,
+    "condaEnvironmentsFound": 0,
+    "actualCondaInterpreterAndImportsVerified": false,
+    "realDatasetsOrWeightsMounted": false,
+    "additionalModelSpend": false
+  },
+  "panel": {
+    "desktopSidebarAndRegistrationVerified": true,
+    "nodeSelectionVerified": true,
+    "copyReferenceActionVerified": true,
+    "disableActionVerified": true,
+    "emptyCondaDiscoveryFeedbackVerified": true,
+    "mobileRegistrationFormVerified": true,
+    "mobileViewport": { "width": 390, "height": 844 }
+  },
+  "runtime": {
+    "wslBoundaryReverified": true,
+    "projectInstructionsAndMcpUpdated": true,
+    "bothIndependentWorkersRunning": true,
+    "loginStartupRemainsEnabled": true,
+    "officialAccountLoginVerified": false,
+    "desktopAuthenticatedChatVerified": false,
+    "coldBootVerified": false
+  },
+  "tests": {
+    "windowsNode": { "passed": 85, "skipped": 3, "failed": 0 },
+    "wslNode": { "passed": 87, "skipped": 1, "failed": 0 },
+    "linuxPython": { "passed": 26, "failed": 0 },
+    "sourceAuditPassed": true,
+    "setupSkillValidated": true
+  },
+  "limitations": [
+    "Empty fixtures do not establish Python or Conda environment compatibility.",
+    "Read-only snapshots and source-prefix scans do not hide sensitive file contents.",
+    "Snapshot garbage collection and publication cancellation are not implemented.",
+    "Published releases are readable by all projects in this installation."
+  ],
+  "scope": "sanitized-summary-not-a-portable-runtime-authorization"
+}
