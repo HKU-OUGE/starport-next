@@ -8,7 +8,7 @@
     "originRejectsUnauthenticated": true,
     "allowedEmailLogin": "confirmed by user",
     "deniedEmailEndToEnd": "not tested with another real account",
-    "publicViewerEndToEnd": "pending user interaction"
+    "publicViewerEndToEnd": "public panel and keyring rendering verified; full interaction and reconnect acceptance pending"
   },
   "localViewer": {
     "cliRendered": true,
@@ -27,10 +27,23 @@
     "totalCostUsd": 0.1216886,
     "computeJobsSubmitted": 0
   },
+  "publicPanelRepair": {
+    "date": "2026-11-01",
+    "actualUserPublicTab": true,
+    "styledPanelAndNavigation": true,
+    "keyringRenderedInsideProjectDesktop": true,
+    "firstResponseBundlesCssJsAndViewer": true,
+    "cspHashesUseHtmlNormalizedLineEndings": true,
+    "gzipRoundTrip": true,
+    "windowsMixedProxyPortChecksTcpAndUdp": true,
+    "computeConnectionsPreserved": 2,
+    "nativeAccountLogin": "pending"
+  },
   "tests": {
-    "windowsNodePassed": 87,
+    "windowsNodePassed": 89,
     "windowsNodeSkipped": 4,
     "wslNodePassed": 90,
+    "wslAndPythonScope": "previous runtime acceptance; runtime unchanged by public panel repair",
     "wslNodeSkipped": 1,
     "pythonPassed": 26,
     "sourceCheck": "passed",

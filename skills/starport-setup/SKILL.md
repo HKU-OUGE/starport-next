@@ -155,6 +155,15 @@ unauthenticated WebSocket upgrades. Never expose a host desktop or raw VNC port.
 Native account login and SDK API validation remain separate; do not claim all
 three authenticated just because their packages or launchers work. Keep the
 public URL available for the user's email-login test and record any pending result.
+Verify the actual public tab, not only a local viewer: the initial page must show
+navigation and a connection state, then the project desktop and keyring if needed.
+The control server bundles its first response with the pinned esbuild dependency;
+retain platform optional packages during npm install and restart control after web
+source changes. If the panel is blank or unstyled, inspect resource loading, CSP
+and the public connection before attributing it to keyring or account state.
+Connect only one viewer per project. Keep the user's public viewer open and point
+to the keyring inside its canvas; do not tell them to find a Windows dialog or
+reset the keyring because a remote image was not visible.
 
 WSL native startup merges the scoped compute MCP into project and Desktop config,
 and imports `AGENTS.md` from `CLAUDE.md`. Validate both inline-script submission

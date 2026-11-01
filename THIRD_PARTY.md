@@ -2,7 +2,9 @@
 
 网页项目桌面通过 npm 锁定版本依赖 [noVNC](https://github.com/novnc/noVNC)
 （MPL-2.0，完整许可证随包提供）和 [ws](https://github.com/websockets/ws)（MIT）。
-noVNC 源码模块按原样提供给浏览器，未修改或复制入本仓库。Linux 显示由发行版软件包
+noVNC 随首屏由 [esbuild](https://github.com/evanw/esbuild)（MIT）打包压缩；
+原始模块与许可证保留在锁定版本的 npm 包中，模块仍可从 `/novnc/core/` 和 `/novnc/vendor/`
+读取。noVNC 模块内容没有本地补丁。Linux 显示由发行版软件包
 TigerVNC、Openbox 提供，遵循各自软件包附带的许可证。
 
 `packages/worker/worker.py`、`guest_entry.py`、`probe.py`、`gpu_probe.py` 和

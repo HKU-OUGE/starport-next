@@ -147,3 +147,11 @@ Linux Desktop 成功启动，停在密钥环解锁；账号登录与实际聊天
 Windows Node 87 通过／4 跳过；WSL Node 90 通过／1 跳过；Python 26 通过。
 远程 GUI 的真实 namespace 负例、WebSocket 身份／Origin／票据负例、源码和 skill
 校验通过。完整[脱敏记录](verification/remote-workspace.json)。
+
+随后根据用户的公网空白反馈，在用户实际公网标签页复现首屏资源未完整加载，并修复为
+首屏一次返回面板、样式和 noVNC、gzip 传输及明确的初始化状态；CSP 摘要按 HTML
+规范统一 Windows 换行符。实际公网页面现已显示完整布局和项目桌面内的 Unlock Keyring，
+未重置密钥环或代替用户登录。完整公网键鼠／重连验收仍单独待测。
+控制端重启期间还修复 Windows 只探测 TCP 导致代理 UDP 监听失败的问题，选端口时同时
+检查两种协议。两台计算连接保持运行；更新后的 Windows Node 89 通过／4 跳过，源码
+检查通过。WSL／Python 为上述运行时版本的既有验收，本次未改动 guest 运行时。

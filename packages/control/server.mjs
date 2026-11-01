@@ -19,6 +19,7 @@ import { createServices } from './services.mjs';
 import { createRemoteSettings } from './remote-settings.mjs';
 import { loadControlOptions } from './config.mjs';
 import {createViewer,viewerAsset} from './viewer.mjs';
+import {webDocument} from './web-document.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
 const workspaceId=v=>typeof v==='string'&&/^[a-z][a-z0-9-]{0,47}$/.test(v);
@@ -76,6 +77,11 @@ export async function startHostControl(state,options={}){
         }
         if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/viewer.js','/style.css'].includes(url.pathname)){
           if(policy.mode==='cloudflare')await access.authenticate(req,policy);
+          if(url.pathname==='/'){
+            const page=await webDocument();res.setHeader('Content-Security-Policy',page.csp);
+            const gzip=/\bgzip\b/.test(req.headers['accept-encoding']||'');
+            res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store','vary':'Accept-Encoding',...(gzip?{'content-encoding':'gzip'}:{})});return res.end(gzip?page.gzip:page.html);
+          }
           const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
           res.writeHead(200,{'content-type':name.endsWith('.js')?'text/javascript; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/html; charset=utf-8','cache-control':'no-store'});
           return res.end(fs.readFileSync(path.join(root,'web',name)));

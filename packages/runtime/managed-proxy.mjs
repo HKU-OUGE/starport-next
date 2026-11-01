@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import dns from 'node:dns/promises';
 import net from 'node:net';
+import dgram from 'node:dgram';
 import { spawn } from 'node:child_process';
 import { privateDir,writePrivate,executable,cleanEnv,error,sleep } from './common.mjs';
 
@@ -28,9 +29,26 @@ export async function proxyConfiguration(candidates,port,{lookup=dns.resolve4}={
     dns:{enable:true,ipv6:false,'respect-rules':true,nameserver:['https://1.1.1.1/dns-query#EGRESS'],'proxy-server-nameserver':['https://1.1.1.1/dns-query#EGRESS']},
     rules:['DOMAIN,localhost,REJECT','DOMAIN-SUFFIX,local,REJECT',...['0.0.0.0/8','10.0.0.0/8','127.0.0.0/8','169.254.0.0/16','172.16.0.0/12','192.168.0.0/16','100.64.0.0/10','198.18.0.0/15','224.0.0.0/4'].map(c=>`IP-CIDR,${c},REJECT`),'IP-CIDR6,::/0,REJECT','MATCH,EGRESS']};
 }
+export async function availableProxyPort(){
+  // Mihomo's mixed listener binds TCP and UDP. Windows can reserve a UDP
+  // range even when TCP accepts the same port, so check both protocols.
+  for(let attempt=0;attempt<32;attempt++){
+    const tcp=net.createServer(),udp=dgram.createSocket('udp4');let bound=false;
+    try{
+      await new Promise((resolve,reject)=>{tcp.once('error',reject);tcp.listen(0,'127.0.0.1',resolve);});
+      const port=tcp.address().port;
+      bound=await new Promise(resolve=>{udp.once('error',()=>resolve(false));udp.bind(port,'127.0.0.1',()=>resolve(true));});
+      if(bound)return port;
+    }finally{
+      await new Promise(resolve=>{try{udp.close(resolve);}catch{resolve();}});
+      if(tcp.listening)await new Promise(resolve=>tcp.close(resolve));
+    }
+  }
+  throw error('mixed_proxy_port_unavailable');
+}
 export async function managedProxy(state,candidates,{binary,onExit}={}) {
   binary=binary||executable('mihomo')||executable('verge-mihomo');if(!binary)throw error('mihomo_binary_required');
-  const port=await new Promise(resolve=>{const s=net.createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p));});});
+  const port=await availableProxyPort();
   const config=await proxyConfiguration(candidates,port),dir=privateDir(path.join(state,'egress-private'));
   const file=path.join(dir,'mihomo.json');writePrivate(file,config);
   const log=fs.openSync(path.join(dir,'proxy.log'),'a',0o600);
