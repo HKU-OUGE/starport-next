@@ -65,10 +65,35 @@ powershell -ExecutionPolicy Bypass -File scripts/start-control.ps1 -Profile prof
 先安装专用发行版、配置好控制端的 `nodesFile` 和 `proxyBinary`，并结束该部署的项目操作。然后运行：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/setup-wsl-clients.ps1 -State private/wsl -Config private/host-control.json -EnableWslg
+powershell -ExecutionPolicy Bypass -File scripts/setup-wsl-clients.ps1 -State private/wsl -Config private/host-control.json -EnableWslg -ControlState private/control
 ```
 
 `-EnableWslg` 是明确选择与 Windows **共享显示和剪贴板**。省略时只安装客户端，不开启图形入口。不要把其他用户的共享偏好写成默认批准；如果当前对话已作选择，无需再次询问。
+
+启用 WSLg 时安装器会在 Windows 桌面和开始菜单创建“Starport Next - 浏览器／Claude Desktop／Claude Code”
+快捷方式。`-ControlState` 指向实际控制端状态；省略时使用控制配置文件旁的 `control` 目录。
+这些入口通过本机鉴权 API 启动项目，凭据不会写入快捷方式参数或传入 WSL。首次启动或验证
+过期时，在没有活动项目操作的情况下自动验证边界；控制端未启动、出口暂停或验证失败会显示提示。
+
+**不要直接用 `wslg.exe ... -- /usr/bin/google-chrome-stable` 启动本发行版的应用。**
+WSL 自动图标绕过项目启动器，发行版用户没有项目 HOME，因而无法创建浏览器配置，也没有项目代理。
+现有安装无需重装客户端，可在控制端正常运行时注册入口：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/register-client-shortcuts.ps1 -State private/control -Config private/host-control.json -Workspace main -RepairWslShortcuts
+```
+
+会保留原始图标备份，并仅修复此发行版中已识别的 Chrome／Claude 自动图标。WSL 可能重新生成
+其自动菜单，日常优先使用独立的 Starport Next 快捷方式。安装交付时应从这三个入口分别验证
+独立窗口，不能只检查进程已启动。浏览器按会话明确选择 Wayland／X11，不使用 `ozone-platform=auto`。
+密钥环由用户在独立窗口解锁；账号登录另行验收。
+
+旧安装若遇到 `Invalid ozone platform: auto`，关闭本安装的项目操作与图形应用后，运行
+`node bin/starport.mjs wsl clients-configure --state private/wsl` 更新启动脚本和客户端策略。
+此命令不下载或重装软件，运行时租约被占用时会拒绝修改。随后重新验证项目边界并打开应用。
+
+同一个项目不能同时使用网页桌面和 WSLg。若已打开网页项目桌面，请先在控制面板点击
+“关闭工作区应用”，再使用桌面快捷方式；“断开画面”只关闭查看器，不能切换显示方式。
 
 安装器通过所选节点启动临时、独立出口，下载官方签名的 Claude Code／Linux Desktop、Chrome（x64）或 Firefox（arm64）、校验摘要的 Node 和锁定版本的 Agent SDK。管理下载通过 stdio 转发到受控代理，不监听 Windows 入站端口、不切换直连。软件安装日志及收据留在私有 `wsl/client-install` 中。
 

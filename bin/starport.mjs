@@ -15,7 +15,7 @@ import { NATIVE_HOSTS,installNative,nativeStatus,nativeUi,launchNative } from '.
 import { startHostControl } from '../packages/control/server.mjs';
 import { loadControlOptions } from '../packages/control/config.mjs';
 import { installWsl,updateWslRuntime } from '../packages/wsl/runtime.mjs';
-import { installWslClients } from '../packages/wsl/clients.mjs';
+import { installWslClients,configureWslClients } from '../packages/wsl/clients.mjs';
 import { privateDir } from '../packages/runtime/common.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -49,6 +49,7 @@ const help = `Starport Next — 配置与部署规划工具
   starport control init --out private/host-control.json
   starport wsl install --state private/wsl --rootfs ubuntu.tar.gz --sha256 SHA256
   starport wsl clients-install --state private/wsl --config private/host-control.json
+  starport wsl clients-configure --state private/wsl
   starport wsl remote-display-install --state private/wsl --config private/host-control.json
   starport wsl update-runtime --state private/wsl
 
@@ -128,6 +129,9 @@ async function main() {
   }
   if(command==='wsl'){
     const action=args.shift();
+    if(action==='clients-configure'){
+      const a=argumentsFor(args,['--state']);return show(await configureWslClients(required(a,'--state')));
+    }
     if(action==='clients-install'||action==='remote-display-install'){
       const a=argumentsFor(args,['--state','--config']);
       return show(await installWslClients(required(a,'--state'),loadControlOptions(required(a,'--config')),{onProgress:show,remoteOnly:action==='remote-display-install'}));

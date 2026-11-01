@@ -63,6 +63,22 @@ Never reuse an old runtime's successful report to authorize a new version.
    sandbox, or weaken network/filesystem isolation to get a window to launch.
    Let the user create/unlock the private Linux keyring in its own window; never
    request its password in chat or bypass it with a plaintext password store.
+   When WSLg is chosen, complete Windows desktop and Start-menu shortcuts before
+   handoff. `setup-wsl-clients.ps1 -EnableWslg -ControlState <actual-control-state>`
+   registers them; for existing installs use `register-client-shortcuts.ps1` with
+   the actual State, Config, Workspace and optional Node plus `-RepairWslShortcuts`.
+   Preserve automatic-link backups and the private ownership receipt. Do not use
+   `wslg.exe -- <application>` as the project launcher: its distribution-level
+   user lacks the project HOME and controlled proxy. Do not create a host HOME,
+   change the default user, or add `--no-sandbox` to mask this error.
+   Existing installs with `ozone-platform=auto` need `wsl clients-configure --state
+   <actual-wsl-state>` while idle, then boundary verification; check Wayland for
+   WSLg and X11 for web sessions. Do not reinstall all packages just for this fix.
+   Verify browser, Desktop and Claude Code from the installed shortcuts as actual
+   Windows windows, plus a controlled HTTPS page after user keyring unlock. A
+   short-lived process acknowledgement is not a successful launch. Record account
+   login separately. If a web GUI session is active, let the user close its apps
+   before switching; never silently terminate it or create another project HOME.
    After explicit API authorization, run one small SDK file task through the
    Windows gateway, verify the artifact and report SDK cost separately from
    official-account login. Keep the real key on Windows and transcripts private.

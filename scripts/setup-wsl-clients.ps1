@@ -1,4 +1,4 @@
-param([string]$State='private\wsl',[string]$Config='private\host-control.json',[switch]$EnableWslg)
+param([string]$State='private\wsl',[string]$Config='private\host-control.json',[switch]$EnableWslg,[string]$ControlState,[string]$Workspace='main')
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'node-path.ps1')
 $node=Get-StarportNode -Repo (Split-Path $PSScriptRoot -Parent)
@@ -14,6 +14,11 @@ if ($EnableWslg) {
     $configuration | Add-Member -NotePropertyName wslg -NotePropertyValue $true -Force
     [IO.File]::WriteAllText($file,($configuration|ConvertTo-Json -Depth 32),[Text.UTF8Encoding]::new($false))
     Write-Output 'WSLg enabled: graphical apps share Windows display and clipboard. Restart the control process and verify the boundary.'
+}
+if ($EnableWslg -or $ControlState) {
+    if (-not $ControlState) { $ControlState=Join-Path (Split-Path ([IO.Path]::GetFullPath($Config)) -Parent) 'control' }
+    & (Join-Path $PSScriptRoot 'register-client-shortcuts.ps1') -State $ControlState -Config $Config -Workspace $Workspace -Node $node -RepairWslShortcuts
+    if ($LASTEXITCODE -ne 0) { throw 'Client shortcut registration failed.' }
 }
 Write-Output 'Clients installed. Verify the workspace, then use the control panel to open the browser, Claude Desktop and Claude Code.'
 Write-Output 'Official account login and a real SDK API task are separate acceptance steps.'

@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-01",
+  "platform": "Windows with owned WSL2 distribution",
+  "cause": [
+    "Automatic WSL links launch outside the project HOME and controlled proxy",
+    "Installed Chrome rejects ozone-platform=auto"
+  ],
+  "shortcuts": {
+    "desktopAndStartMenuEntries": 6,
+    "recognizedAutomaticLinksRepaired": 3,
+    "originalLinksBackedUp": true,
+    "repeatRegistrationNoDuplicates": true,
+    "entryArgumentsContainNoCredentials": true,
+    "explorerInvokedAllThreeDedicatedLinks": true
+  },
+  "actualWindows": {
+    "browser": "WSLg window and Unlock Keyring visible; existing browser reused by shortcut",
+    "desktop": "independent WSLg window launched by shortcut",
+    "claudeCode": "independent terminal launched by shortcut; onboarding rendered",
+    "controlledHttpsPage": "pending user keyring unlock",
+    "officialAccountLogin": "pending"
+  },
+  "verification": {
+    "workspaceBoundaryPassed": true,
+    "computeNodesRemainReady": 2,
+    "waylandAndX11WrapperArgumentsCheckedInWsl": true,
+    "clientReconfigurationRejectsActiveRuntime": true,
+    "windowsNodePassed": 94,
+    "windowsNodeSkipped": 5,
+    "sourceCheck": "passed",
+    "setupAndUninstallSkills": "validated"
+  },
+  "scope": "No credential, distribution identifier, account or operator path. Window launch is separate from account and browser page acceptance."
+}

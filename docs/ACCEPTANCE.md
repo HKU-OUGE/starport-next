@@ -155,3 +155,17 @@ Windows Node 87 通过／4 跳过；WSL Node 90 通过／1 跳过；Python 26 �
 控制端重启期间还修复 Windows 只探测 TCP 导致代理 UDP 监听失败的问题，选端口时同时
 检查两种协议。两台计算连接保持运行；更新后的 Windows Node 89 通过／4 跳过，源码
 检查通过。WSL／Python 为上述运行时版本的既有验收，本次未改动 guest 运行时。
+
+## Windows 桌面客户端快捷方式
+
+2026-11-01：定位 WSL 自动菜单直接启动发行版程序时没有项目 HOME／代理，以及 Chrome
+拒绝 `ozone-platform=auto` 两个独立问题。安装器现为启用 WSLg 的部署注册三个桌面入口与
+三个开始菜单入口；本机已有的三个 Chrome／Claude 自动图标在备份后按精确目标修复。
+重复注册无重复项，参数不含凭据。项目正在网页模式时保留原会话并明确提示，不静默切换。
+
+实际从资源管理器执行三个专用快捷方式，观察到 Chrome、Claude Desktop 和 Claude Code
+独立 WSLg 窗口；CLI 欢迎页与密钥环窗口可见。浏览器初次启动由同一启动器完成，快捷方式
+再次打开复用现有进程。浏览器 HTTPS 页面仍待用户解锁密钥环，官方账号登录仍待完成。
+项目边界重新验证通过，两台计算连接保留。Wayland／X11 参数在 WSL Bash 下分别验证；
+客户端配置命令在活动运行时拒绝写入。Windows Node 94 通过／5 跳过，源码及相关 skill
+检查通过。[脱敏记录](verification/wslg-shortcuts.json)。

@@ -23,6 +23,14 @@ deletes an entire distribution: require explicit approval for that exact recorde
 distribution and its data. Never use `wsl --shutdown` or infer ownership from a
 similar name. Closing the new control process does not cancel remote compute jobs.
 
+Before removing the checkout, inspect `client-shortcuts-<workspace>.json` in its
+control state. Remove only listed desktop/Start-menu links whose target and
+arguments still identify this installation's `launch-client.ps1`, state and project.
+For repaired WSL automatic links, restore the corresponding private backup only
+if the current link is still owned and the distribution is being retained. Do not
+restore links for a distribution being removed or overwrite links changed by the
+user. Preserve unrelated WSL menu entries and never delete a whole shared menu.
+
 Inventory exact paths and ownership first. Distinguish repository source, private
 profiles/vaults, projects, task artifacts, dependency releases, and temporary files.
 Explain the scope and estimated storage recovery; use the user's explicit deletion

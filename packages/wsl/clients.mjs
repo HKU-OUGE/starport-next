@@ -56,10 +56,15 @@ sys.exit(result.returncode)
   }finally{egress?.close();proxy?.close();fs.rmSync(lock,{force:true});}
 }
 
+export function wslBrowserScript(architecture){
+  return architecture==='x64'?`#!/bin/bash\nset -eu\nexec /usr/bin/google-chrome-stable --user-data-dir="$HOME/.config/starport-browser" --ozone-platform="\${ELECTRON_OZONE_PLATFORM_HINT:-wayland}" --proxy-server=http://127.0.0.1:13128 --proxy-bypass-list="localhost;127.0.0.1;[::1]" --disable-quic --no-first-run --lang=zh-TW "$@"\n`:nativeFiles(architecture)['/usr/local/bin/starport-browser'];
+}
 export async function configureWslClients(state){
+  if(process.platform!=='win32')throw error('wsl_install_requires_windows');
   const receipt=read(path.join(state,'wsl.json')),clients=read(path.join(state,'clients.json'));
+  if(receipt.phase!=='installed')throw error('wsl_install_required');
   const standard=nativeFiles(clients.architecture);
-  const browser=clients.architecture==='x64'?`#!/bin/bash\nset -eu\nexec /usr/bin/google-chrome-stable --user-data-dir="$HOME/.config/starport-browser" --ozone-platform=auto --proxy-server=http://127.0.0.1:13128 --proxy-bypass-list="localhost;127.0.0.1;[::1]" --disable-quic --no-first-run --lang=zh-TW "$@"\n`:standard['/usr/local/bin/starport-browser'];
+  const browser=wslBrowserScript(clients.architecture);
   const files={
     '/usr/local/bin/starport-browser':browser,
     '/usr/share/applications/starport-browser.desktop':standard['/usr/share/applications/starport-browser.desktop'],
