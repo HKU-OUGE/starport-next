@@ -1,3 +1,4 @@
+import {showWorkspaceAccess} from './workspace-access.js';
 const labels={idle:'就绪',running:'运行中',cancelling:'正在停止',completed:'已完成',cancelled:'已停止',interrupted:'已中断',failed:'失败'};
 export function initSessions({api,problem,el}){
   const $=id=>document.getElementById(id),cache=new Map();
@@ -9,7 +10,8 @@ export function initSessions({api,problem,el}){
   function controls(){
     const proof=status?.runtime.reports.find(r=>r.workspace===row?.workspace),ready=proof?.passed&&status?.model?.configured&&status?.egress.enabled;
     $('session-title').textContent=row?.title||'选择或新建会话';
-    $('session-state').textContent=row?`${row.workspace} · ${labels[row.status]||row.status}${row.archived?' · 已归档':''}`:'';
+    const access=showWorkspaceAccess(status,row?.workspace,$('session-open-folder'),$('session-local-panel'));
+    $('session-state').textContent=row?`${row.workspace} · ${access.label} · ${labels[row.status]||row.status}${row.archived?' · 已归档':''}`:'';
     $('session-model').textContent=row?.model||status?.model?.model||'API 未配置';
     $('session-send').disabled=!row||busy()||sending||row.archived||!ready;
     $('session-input').disabled=!row||row.archived||sending;
@@ -76,6 +78,7 @@ export function initSessions({api,problem,el}){
   $('session-name-form').addEventListener('submit',async event=>{event.preventDefault();try{await api('/api/sessions/'+selected,{title:$('session-name').value});$('session-name-form').hidden=true;await sync();}catch(e){problem(e);}});
   action('session-archive',async()=>{await api('/api/sessions/'+selected,{archived:!row.archived});await sync();});
   action('session-stop',async()=>{await api('/api/sessions/'+selected+'/stop',{});await sync();});
+  action('session-open-folder',async()=>{await api('/api/workspaces/'+row.workspace+'/open-folder',{});});
   $('session-workspace').addEventListener('change',()=>sync().catch(problem));$('session-filter').addEventListener('change',()=>sync().catch(problem));
   $('session-input').addEventListener('input',drafts);
   $('session-form').addEventListener('submit',async event=>{

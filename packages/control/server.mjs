@@ -83,7 +83,7 @@ export async function startHostControl(state,options={}){
           await access.authenticate(req,policy);const bytes=viewerAsset(url.pathname);
           res.writeHead(200,{'content-type':'text/javascript; charset=utf-8','cache-control':'no-store'});return res.end(bytes);
         }
-        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/viewer.js','/sessions.js','/style.css'].includes(url.pathname)){
+        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/viewer.js','/sessions.js','/workspace-access.js','/style.css'].includes(url.pathname)){
           if(policy.mode==='cloudflare')await access.authenticate(req,policy);
           if(url.pathname==='/'){
             const page=await webDocument();res.setHeader('Content-Security-Policy',page.csp);
@@ -179,7 +179,7 @@ export async function startHostControl(state,options={}){
           throw error('unknown_route');
         }
         if(req.method==='GET'&&url.pathname==='/api/status')return json(res,200,{
-          control:{platform:process.platform,kind:'native-host',remote:policy.mode,updatedAt:refreshedAt},
+          control:{platform:process.platform,kind:'native-host',remote:policy.mode,port:server.address().port,updatedAt:refreshedAt},
           egress:{enabled:egress.enabled,configured:proxyRunning||!!options.testEgress,directFallback:false},
           runtime:runtime.status(),model:{configured:egress.modelReady,model:options.model||null},workspaces,compute:health,jobs:compute.jobs(),tunnel:tunnel?.status()||{phase:'not-configured'},csrf:access.csrf(identity)});
         if(req.method==='POST'&&url.pathname.startsWith('/api/egress/')){

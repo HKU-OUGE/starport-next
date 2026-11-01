@@ -5,6 +5,18 @@ import path from 'node:path';
 import os from 'node:os';
 import {EventEmitter} from 'node:events';
 import {workspaceExplorerPath,openWorkspaceFolder} from '../packages/control/explorer.mjs';
+import {workspaceAccess} from '../packages/control/web/workspace-access.js';
+
+test('remote folder entry returns only a credential-free local panel link bound to a registered project',()=>{
+  const status={control:{platform:'win32',remote:'cloudflare',port:18884},workspaces:['main','other']};
+  const access=workspaceAccess(status,'other'),url=new URL(access.localUrl);
+  assert.equal(access.canOpen,false);assert.equal(url.origin,'http://127.0.0.1:18884');
+  assert.deepEqual([...url.searchParams],[['workspace','other']]);assert.equal(url.hash,'#workspaces');
+  assert.equal(workspaceAccess(status,'../secret').localUrl,null);
+  assert.equal(workspaceAccess(status,'unknown').localUrl,null);
+  assert.equal(workspaceAccess({...status,control:{...status.control,remote:'local'}},'other').canOpen,true);
+  assert.equal(workspaceAccess({...status,control:{...status.control,platform:'linux'}},'other').localUrl,null);
+});
 
 test('Explorer opens only an owned project UNC path without a shell or arbitrary caller path',async t=>{
   const receipt={phase:'installed',distribution:'StarportWork-0123456789abcdef'};

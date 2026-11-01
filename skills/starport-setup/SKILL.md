@@ -22,7 +22,10 @@ Report the installation, login, and runtime verification of Claude Code, Agent S
 Claude Desktop, and the browser separately. A working control panel and verified
 WSL workspace do not establish that these clients are installed or configured.
 When handing off a local Windows workspace, verify the panel's Explorer button
-opens that project's WSL folder. Use the owned distribution receipt and fixed
+opens that project's WSL folder from both Project Workspace and the selected API session.
+From Access, verify the local-panel link preserves the selected project without credentials,
+and explain that it must be used on the installation computer. Keep the Access launch denial.
+Use the owned distribution receipt and fixed
 project path; do not accept arbitrary host paths or launch Explorer from Access.
 For an existing owned distribution, finish active jobs and GUI sessions before
 `wsl update-runtime`; verify the old runtime digest and reconcile an interrupted
