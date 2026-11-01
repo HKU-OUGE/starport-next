@@ -30,6 +30,9 @@ For repaired WSL automatic links, restore the corresponding private backup only
 if the current link is still owned and the distribution is being retained. Do not
 restore links for a distribution being removed or overwrite links changed by the
 user. Preserve unrelated WSL menu entries and never delete a whole shared menu.
+The shortcut receipt may also contain `retired` names and cached `icons` from an
+appearance change. Treat archived links as backups, not live startup entries;
+remove only owned caches/backups included in the user's removal scope.
 
 Inventory exact paths and ownership first. Distinguish repository source, private
 profiles/vaults, projects, task artifacts, dependency releases, and temporary files.

@@ -78,6 +78,11 @@ Never reuse an old runtime's successful report to authorize a new version.
    acceptance: a remote launch may override a broken default display flag. Check
    the introducing diff before attributing a regression to a browser upgrade or
    user action; preserve the distinction between automatic links and project launchers.
+   Follow the [dual-display regression checklist](references/dual-display-regression.md)
+   before handing off either mode or publishing a shared-launcher change. Complete
+   both mode columns and keep account-dependent and public-viewer results separate.
+   Restore requested original shortcut names/icons with `-Appearance original`,
+   preserving the authenticated project launcher and reversible ownership backups.
    Verify browser, Desktop and Claude Code from the installed shortcuts as actual
    Windows windows, plus a controlled HTTPS page after user keyring unlock. A
    short-lived process acknowledgement is not a successful launch. Record account

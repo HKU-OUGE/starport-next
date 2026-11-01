@@ -70,8 +70,9 @@ powershell -ExecutionPolicy Bypass -File scripts/setup-wsl-clients.ps1 -State pr
 
 `-EnableWslg` 是明确选择与 Windows **共享显示和剪贴板**。省略时只安装客户端，不开启图形入口。不要把其他用户的共享偏好写成默认批准；如果当前对话已作选择，无需再次询问。
 
-启用 WSLg 时安装器会在 Windows 桌面和开始菜单创建“Starport Next - 浏览器／Claude Desktop／Claude Code”
-快捷方式。`-ControlState` 指向实际控制端状态；省略时使用控制配置文件旁的 `control` 目录。
+启用 WSLg 时安装器会在 Windows 桌面和独立 Starport Next 开始菜单创建客户端快捷方式，
+默认沿用 Google Chrome／Claude 的原名称和图标，Claude Code 使用终端图标。
+`-ControlState` 指向实际控制端状态；省略时使用控制配置文件旁的 `control` 目录。
 这些入口通过本机鉴权 API 启动项目，凭据不会写入快捷方式参数或传入 WSL。首次启动或验证
 过期时，在没有活动项目操作的情况下自动验证边界；控制端未启动、出口暂停或验证失败会显示提示。
 
@@ -87,6 +88,11 @@ powershell -ExecutionPolicy Bypass -File scripts/register-client-shortcuts.ps1 -
 其自动菜单，日常优先使用独立的 Starport Next 快捷方式。安装交付时应从这三个入口分别验证
 独立窗口，不能只检查进程已启动。浏览器按会话明确选择 Wayland／X11，不使用 `ozone-platform=auto`。
 密钥环由用户在独立窗口解锁；账号登录另行验收。
+
+`-Appearance original`（默认）恢复原图标和名称，仍使用项目启动器；`-Appearance next` 保留
+“Starport Next - …”名称。原图标会缓存到本安装状态目录，不依赖 WSL 临时图标长期存在。
+改名只归档收据中目标与参数均未被修改的旧入口，备份保存在 `client-shortcut-backups`；不删除
+用户修改的快捷方式或整个菜单。两个显示模式的交付检查见[回归清单](../skills/starport-setup/references/dual-display-regression.md)。
 
 旧安装若遇到 `Invalid ozone platform: auto`，关闭本安装的项目操作与图形应用后，运行
 `node bin/starport.mjs wsl clients-configure --state private/wsl` 更新启动脚本和客户端策略。

@@ -24,7 +24,7 @@ test('SDK and command operations share one workspace execution lease',async()=>{
   assert.equal(launches,1);runtime.close();await completed;
 });
 
-test('native apps reuse one supervised namespace and never receive the SDK capability',async()=>{
+for(const display of ['wslg','remote'])test(`${display} apps reuse one namespace, reject live display switching and never receive the SDK capability`,async()=>{
   const frames=[],capabilities={modelCapability:'sdk-only-example',computeCapability:'project-example'};let launches=0;
   const launch=()=>{
     launches++;
@@ -36,8 +36,11 @@ test('native apps reuse one supervised namespace and never receive the SDK capab
     child.stdin.on('finish',()=>child.emit('close',0));return child;
   };
   const runtime=createWslRuntime('unused',{launch,wslg:true,destinations:{},capabilities:()=>capabilities});
-  await runtime.nativeAction('main','browser');await runtime.nativeAction('main','desktop');
-  assert.equal(launches,1);assert.equal(frames[0].request.wslg,true);
+  await runtime.nativeAction('main','browser',display);await runtime.nativeAction('main','desktop',display);
+  assert.equal(launches,1);assert.equal(frames[0].request.wslg,display==='wslg');
+  assert.equal(frames[0].request.display,display);
+  await assert.rejects(runtime.nativeAction('main','browser',display==='wslg'?'remote':'wslg'),/close_existing_display_first/);
+  assert.equal(launches,1);
   assert.equal(frames[0].request.modelCapability,undefined);
   assert.equal(capabilities.modelCapability,'sdk-only-example');
   assert.deepEqual(frames.slice(1).map(v=>v.app),['browser','desktop']);

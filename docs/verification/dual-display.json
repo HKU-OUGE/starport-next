@@ -1,0 +1,59 @@
+{
+  "date": "2026-11-01",
+  "scope": "WSLg and authenticated web project desktop, without official account login",
+  "matrix": {
+    "wslg": {
+      "browser": "HTTPS Example Domain rendered after keyboard navigation; official login page rendered",
+      "claudeCode": "Theme selection responds to arrow keys; official login-method menu rendered",
+      "desktop": "Welcome advances to official login page; keyboard focus responds"
+    },
+    "remote": {
+      "browser": "pending in this regression run",
+      "claudeCode": "pending in this regression run; prior viewer acceptance recorded separately",
+      "desktop": "Application starts and Unlock Keyring renders in connected expanded local viewer; waiting for user unlock"
+    }
+  },
+  "accountAcceptance": {
+    "officialLogin": "deferred by user",
+    "nativeConversationAndModelMcpCalls": "pending; not inferred from configuration or earlier API tests",
+    "cliAndDesktopComputeMcpConfigured": true,
+    "projectUsageGuidesPresent": true,
+    "computeNodesReady": 2
+  },
+  "switching": {
+    "liveOppositeModeRejectedBothDirections": true,
+    "projectMarkerPreservedFromWslgToRemote": true,
+    "returnToWslgAndFinalShortcuts": "pending after remote checks"
+  },
+  "shortcuts": {
+    "originalNamesAndIconsRestored": true,
+    "persistentDesktopAndStartMenuEntries": 6,
+    "exactOwnedOldNamesArchived": 6,
+    "originalIconsCachedInOwnedState": true,
+    "labelsFollowInstalledBrowserInsteadOfTemporaryIconPresence": true,
+    "repeatedRegistrationNoDuplicates": true,
+    "projectLaunchTargetsPreserved": true
+  },
+  "viewer": {
+    "localExpandedCanvas": "passed; visible keyring dialog",
+    "reconnectTwiceAndReload": "pending in this regression run",
+    "publicUi": "pending; browser navigation tool timed out, HTTP Access redirect alone does not verify UI",
+    "identityOriginAndSingleUseTicketNegativeTests": "passed"
+  },
+  "tests": {
+    "windowsNodePassed": 95,
+    "windowsNodeSkipped": 5,
+    "actualWslDisplayAndBoundaryPassed": 8,
+    "actualWslDisplayAndBoundarySkipped": 0,
+    "pythonPassed": 26,
+    "sourceCheck": "passed",
+    "powershellSyntaxAndUtf8Bom": "passed",
+    "setupAndUninstallSkillValidation": "passed"
+  },
+  "limitations": [
+    "Not a complete six-cell GUI acceptance while keyring-dependent checks remain pending",
+    "No Windows logout or cold-boot test",
+    "No new paid model call or remote compute job in this regression run",
+    "No credentials, private addresses or operator paths in this record"
+  ]
+}

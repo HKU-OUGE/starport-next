@@ -24,6 +24,7 @@ Windows 优先采用 **主系统管理网络与服务器，WSL2 执行项目程�
 同一入口可打开 WSL2 项目桌面操作 Claude Code CLI／Desktop，或在面板运行 Agent SDK；账号认证各自独立。
 启用 WSLg 的 Windows 安装会创建浏览器、Claude Desktop 和 Claude Code 的桌面／开始菜单
 快捷方式，通过控制端进入项目；不要直接使用发行版的 `wslg.exe` 自动图标启动应用。
+快捷方式默认保留客户端原图标与名称；安装 skill 包含 WSLg／网页桌面的逐项回归清单。
 [依赖与数据](docs/DEPENDENCIES.md)页可发布环境、数据目录的固定只读版本，供 Claude 任务选择。
 服务器任务面板提供资源概况、筛选、日志、产物下载和取消；服务页可注册 Windows
 登录启动。Claude Code／Desktop 通过项目计算 MCP 接入远端任务，项目内自动生成
