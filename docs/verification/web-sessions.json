@@ -1,0 +1,62 @@
+{
+  "date": "2026-11-01",
+  "scope": "API web sessions on Windows control and WSL2 project; native account authorization separate",
+  "implemented": [
+    "create and project filter",
+    "rename inline",
+    "archive and restore",
+    "persisted messages and tool results",
+    "explicit SDK resume",
+    "request-ID deduplication",
+    "scoped SDK stop",
+    "existing local and Access authentication"
+  ],
+  "actual": {
+    "writeReadFile": true,
+    "computeHealthNodes": 2,
+    "duplicateRequestCreatedTurns": 1,
+    "resumeAfterIdleControlRestart": true,
+    "sameSdkContextAcrossCompletedTurns": true,
+    "recallWithoutToolOrRepeatedPhrase": true,
+    "publicSendAndReload": true,
+    "publicRenameArchiveRestore": true,
+    "publicStopButton": true,
+    "stopBeforeSdkResultViaApi": true,
+    "stopReleasedProjectExecution": true,
+    "workspaceMarkerPreserved": true,
+    "workerProcessesPreserved": true,
+    "emptyStateStableAcrossPolls": true,
+    "narrowViewportWidth": 390,
+    "horizontalDocumentOverflow": false,
+    "actualPhoneDevice": false
+  },
+  "cost": {
+    "mainSessionCumulativeSdkEstimateUsd": 0.090057,
+    "scope": "SDK cumulative client estimate, not provider invoice; do not sum resumed results",
+    "additionalCancellationChecks": "separate test session has reported usage; early cancellation can finish without a billing result"
+  },
+  "validation": {
+    "windowsNodePassed": 104,
+    "windowsNodeSkipped": 5,
+    "realWslDisplayAndBoundaryPreviouslyPassed": 8,
+    "pythonPreviouslyPassed": 26,
+    "sourceCheck": "passed",
+    "setupAndUninstallSkills": "passed",
+    "frontend": "real integrated CUA browser on local and Access public entry; desktop and 390px layout"
+  },
+  "observations": [
+    "Standalone foreground sleep was rejected by SDK; it was not treated as a successful wait/cancel test. A separate SDK operation was cancelled before any result, with no active runtime afterwards.",
+    "A stop/result race is covered offline and preserves a complete answer.",
+    "Initial native prompt blocked automation in one local tab; renaming uses an inline form and was verified publicly.",
+    "Browser connector emitted Receiving end does not exist messages; no application overlay observed.",
+    "Control restart temporarily returned public 502 while the tunnel reconnected; subsequent actual page and API interaction recovered.",
+    "Repeated Windows TCP allocations entered a UDP-reserved range; independent high-port retries now check both TCP and UDP, with a regression test."
+  ],
+  "limitations": [
+    "No official-account CLI or Desktop conversation",
+    "No new remote compute job in this session regression",
+    "No cold boot or Windows logout",
+    "No per-tool approval UI, attachment flow or native transcript synchronization",
+    "No credentials or private runtime IDs in this record"
+  ]
+}

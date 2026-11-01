@@ -185,6 +185,13 @@ export function createWslRuntime(state, { launch, destinations, capabilities, ws
   }
   const digest=()=>runtimeBundle().digest;
   return {execute,reports,nativeAction,digest,
+    async cancelSdk(workspace){
+      const session=active.get(workspace+':sdk');if(!session)return;
+      await new Promise((resolve,reject)=>{
+        const timer=setTimeout(()=>reject(error('session_stop_requires_reconciliation')),12000);
+        session.child.once('close',()=>{clearTimeout(timer);resolve();});session.bridge.close();
+      });
+    },
     attachViewer(workspace,stream){
       const session=active.get(workspace+':native');
       if(!session||nativeStates.get(workspace)?.display!=='remote')throw error('remote_display_required');

@@ -13,7 +13,7 @@
 | 3. 项目与依赖 | 项目、依赖版本、模型 | 持久工作区、只读依赖和独立新增依赖层 |
 | 4. 远程访问 | Cloudflare Token、域名、邮箱 | Tunnel、Access、权限与重连验证 |
 
-**当前交付：配置工具、本地隔离工作区与控制面板。** 已实现加密导入／导出、Pi v1 配置迁移、QEMU 工作区、专用出口、文件操作与官方 Agent SDK 接入。新增 Windows 原生控制端、WSL2 项目接入层、文件面板和既有训练 API 适配；验证边界见[验收记录](docs/ACCEPTANCE.md)。账号 CLI／Desktop 的 guest 安装和画面入口见[官方账号客户端](docs/NATIVE-CLIENTS.md)。完整会话网页、远端 DSW 自动部署仍按[实施路线](docs/ROADMAP.md)推进。
+**当前交付：配置工具、本地隔离工作区与控制面板。** 已实现加密导入／导出、Pi v1 配置迁移、QEMU 工作区、专用出口、文件操作与官方 Agent SDK 接入。新增 Windows 原生控制端、WSL2 项目接入层、文件面板和既有训练 API 适配；验证边界见[验收记录](docs/ACCEPTANCE.md)。账号 CLI／Desktop 的 guest 安装和画面入口见[官方账号客户端](docs/NATIVE-CLIENTS.md)。API 网页会话见[会话管理](docs/SESSIONS.md)；逐工具审批、附件和远端 DSW 自动部署仍按[实施路线](docs/ROADMAP.md)推进。
 
 订阅附送的 API 额度适用于自建工作台的 Agent SDK 会话；原生 Desktop 的 Code 会话另按其适用方式计费。[入口与额度](docs/DESIGN.md#入口与额度)
 
@@ -21,7 +21,7 @@ Windows 优先采用 **主系统管理网络与服务器，WSL2 执行项目程�
 
 面板采用左侧导航，支持[多服务器](docs/MULTI-SERVER.md)分别监控、筛选任务和暂停接单。
 [远程访问页](docs/REMOTE-ACCESS.md)可设置已有 Cloudflare Access 的域名、邮箱和 Tunnel。
-同一入口可打开 WSL2 项目桌面操作 Claude Code CLI／Desktop，或在面板运行 Agent SDK；账号认证各自独立。
+同一入口可打开 WSL2 项目桌面操作 Claude Code CLI／Desktop，或在「会话」中直接对话、查看工具结果、续接历史和停止 Agent SDK；账号认证各自独立。
 启用 WSLg 的 Windows 安装会创建浏览器、Claude Desktop 和 Claude Code 的桌面／开始菜单
 快捷方式，通过控制端进入项目；不要直接使用发行版的 `wslg.exe` 自动图标启动应用。
 快捷方式默认保留客户端原图标与名称；安装 skill 包含 WSLg／网页桌面的逐项回归清单。

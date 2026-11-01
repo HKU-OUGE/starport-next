@@ -16,6 +16,8 @@ WSL distributions and global settings. Model processes must use the inner projec
 boundary, never the distribution's administrative shell. Keep Windows credentials
 out of WSL and set zh_TW.UTF-8 / Asia/Taipei inside the workspace. Do not present
 Linux pipe tests as Windows boot, WSLg, or official-account acceptance.
+For API-backed web sessions, complete [the web-session regression](references/web-session-regression.md).
+Keep the desktop entries available; distinguish SDK session acceptance from native account login.
 Report the installation, login, and runtime verification of Claude Code, Agent SDK,
 Claude Desktop, and the browser separately. A working control panel and verified
 WSL workspace do not establish that these clients are installed or configured.

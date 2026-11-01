@@ -101,12 +101,17 @@ def launch(name):
         return
     if name in apps and apps[name].poll() is None:
         return
+    # The remote X server otherwise defaults to white, while Claude uses a dark
+    # theme. Pin Latin cell metrics too: the locale's CJK monospace fallback can
+    # make ASCII terminal text appear double-spaced.
+    terminal = ['/usr/bin/xterm', '-fa', 'DejaVu Sans Mono', '-fs', '12',
+                '-bg', '#1e1e1e', '-fg', '#d4d4d4', '-cr', '#d4d4d4']
     commands = {
         'browser': ['/usr/local/bin/starport-browser', 'https://claude.ai/'],
         'desktop': ['/usr/bin/claude-desktop', '--proxy-server=http://127.0.0.1:13128',
                     '--proxy-bypass-list=localhost;127.0.0.1;[::1]', '--disable-quic', '--disable-gpu'],
-        'terminal': ['/usr/bin/xterm', '-T', 'Starport / Claude Code', '-fa', 'monospace', '-fs', '12', '-e', '/bin/bash', '--noprofile', '--norc', '-c', 'claude; exec bash --noprofile --norc'],
-        'login': ['/usr/bin/xterm', '-T', 'Starport / Claude Code Login', '-fa', 'monospace', '-fs', '12', '-e', '/bin/bash', '--noprofile', '--norc', '-c', 'claude auth login --claudeai; printf "\\nPress Enter to close."; read -r ignored'],
+        'terminal': terminal + ['-T', 'Starport / Claude Code', '-e', '/bin/bash', '--noprofile', '--norc', '-c', 'claude; exec bash --noprofile --norc'],
+        'login': terminal + ['-T', 'Starport / Claude Code Login', '-e', '/bin/bash', '--noprofile', '--norc', '-c', 'claude auth login --claudeai; printf "\\nPress Enter to close."; read -r ignored'],
     }
     if name not in commands:
         raise ValueError('invalid_native_app')

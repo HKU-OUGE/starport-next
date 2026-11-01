@@ -3,6 +3,7 @@ import path from 'node:path';
 import dns from 'node:dns/promises';
 import net from 'node:net';
 import dgram from 'node:dgram';
+import {randomInt} from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { privateDir,writePrivate,executable,cleanEnv,error,sleep } from './common.mjs';
 
@@ -35,7 +36,11 @@ export async function availableProxyPort(){
   for(let attempt=0;attempt<32;attempt++){
     const tcp=net.createServer(),udp=dgram.createSocket('udp4');let bound=false;
     try{
-      await new Promise((resolve,reject)=>{tcp.once('error',reject);tcp.listen(0,'127.0.0.1',resolve);});
+      // Repeated port-0 allocations can walk an entire UDP-reserved range on
+      // Windows. After the first attempt, sample independent high ports.
+      const candidate=attempt===0?0:randomInt(10240,65536);
+      const tcpReady=await new Promise(resolve=>{tcp.once('error',()=>resolve(false));tcp.listen(candidate,'127.0.0.1',()=>resolve(true));});
+      if(!tcpReady)continue;
       const port=tcp.address().port;
       bound=await new Promise(resolve=>{udp.once('error',()=>resolve(false));udp.bind(port,'127.0.0.1',()=>resolve(true));});
       if(bound)return port;

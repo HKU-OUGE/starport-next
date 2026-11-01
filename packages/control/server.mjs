@@ -20,6 +20,7 @@ import { createRemoteSettings } from './remote-settings.mjs';
 import { loadControlOptions } from './config.mjs';
 import {createViewer,viewerAsset} from './viewer.mjs';
 import {webDocument} from './web-document.mjs';
+import {createSessions} from './sessions.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
 const workspaceId=v=>typeof v==='string'&&/^[a-z][a-z0-9-]{0,47}$/.test(v);
@@ -27,7 +28,7 @@ export async function startHostControl(state,options={}){
   state=privateDir(state);
   const lock=path.join(state,'control.lock');
   try{fs.writeFileSync(lock,JSON.stringify({pid:process.pid}),{flag:'wx',mode:0o600});}catch{throw error('control_already_started_or_requires_reconciliation');}
-  let proxy,egress,compute,runtime,server,timer,tunnel,viewer;const computeSsh=[];
+  let proxy,egress,compute,runtime,server,timer,tunnel,viewer,sessions;const computeSsh=[];
   const workspaceFile=path.join(state,'workspaces.json');
   const workspaces=fs.existsSync(workspaceFile)?read(workspaceFile):['main'];
   if(!Array.isArray(workspaces)||workspaces.some(v=>!workspaceId(v)))throw error('invalid_workspace_registry');
@@ -53,6 +54,13 @@ export async function startHostControl(state,options={}){
     runtime=createWslRuntime(options.wslState||path.join(state,'wsl'),{launch:options.testLaunch,wslg:options.wslg===true,
       destinations:{proxy:egress.proxyPort,model:egress.apiPort,compute:compute.port},
       capabilities:workspace=>({modelCapability:egress.modelReady?egress.capability:undefined,computeCapability:compute.capability(workspace)})});
+    sessions=createSessions(state,{runtime,workspaces,model:options.model||'claude-haiku-5-5',authorize:workspace=>{
+      if(verifying)throw error('workspace_verification_in_progress');
+      const proof=runtime.reports.get(workspace);
+      if(!proof?.passed||proof.runtimeDigest!==runtime.digest()||Date.now()-Date.parse(proof.checkedAt)>86400000)throw error('workspace_verification_required');
+      if(!egress.enabled)throw error('enable_controlled_egress_first');
+      if(!egress.modelReady)throw error('api_gateway_required');
+    }});
     const refresh=async()=>{if(refreshing)return;refreshing=true;try{health=await compute.health();refreshedAt=new Date().toISOString();}finally{refreshing=false;}};
     await refresh();timer=setInterval(refresh,10000);timer.unref();
     let access,activeAccess=options.access;
@@ -75,7 +83,7 @@ export async function startHostControl(state,options={}){
           await access.authenticate(req,policy);const bytes=viewerAsset(url.pathname);
           res.writeHead(200,{'content-type':'text/javascript; charset=utf-8','cache-control':'no-store'});return res.end(bytes);
         }
-        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/viewer.js','/style.css'].includes(url.pathname)){
+        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/viewer.js','/sessions.js','/style.css'].includes(url.pathname)){
           if(policy.mode==='cloudflare')await access.authenticate(req,policy);
           if(url.pathname==='/'){
             const page=await webDocument();res.setHeader('Content-Security-Policy',page.csp);
@@ -94,6 +102,22 @@ export async function startHostControl(state,options={}){
         }
         const identity=await access.authenticate(req,policy);
         if(req.method!=='GET')access.check(req,policy,identity);
+        if(url.pathname==='/api/sessions'){
+          if(req.method==='GET')return json(res,200,{sessions:sessions.list({workspace:url.searchParams.get('workspace')||undefined,archived:url.searchParams.get('archived')==='true'})});
+          if(req.method==='POST')return json(res,201,sessions.create(await bodyJson(req,4096)));
+          throw error('unknown_route');
+        }
+        const conversation=/^\/api\/sessions\/([a-f0-9]{32})(?:\/(messages|stop))?$/.exec(url.pathname);
+        if(conversation){const [,id,action]=conversation;
+          if(req.method==='GET'&&!action)return json(res,200,sessions.snapshot(id,Number(url.searchParams.get('after')||0)));
+          if(req.method==='POST'){
+            const input=await bodyJson(req,256*1024);
+            if(action==='messages')return json(res,202,sessions.start(id,input));
+            if(action==='stop')return json(res,200,await sessions.stop(id));
+            if(!action)return json(res,200,sessions.update(id,input));
+          }
+          throw error('unknown_route');
+        }
         if(['/api/resources','/api/resources/disable','/api/resources/auto-conda'].includes(url.pathname)){
           if(policy.mode!=='local')throw error('local_resource_action_required');
           if(req.method==='GET'&&url.pathname==='/api/resources')return json(res,200,await compute.resources(url.searchParams.get('node')||undefined));
@@ -232,6 +256,6 @@ export async function startHostControl(state,options={}){
     if(options.tunnel)tunnel=startTunnel(state,options.tunnel,options.access);
     const result={port,url:`http://127.0.0.1:${port}/`,phase:'running',platform:process.platform,pid:process.pid};
     writePrivate(path.join(state,'control.json'),result);
-    return {...result,runtime,egress,compute,async close(){clearInterval(timer);viewer.close();runtime.close();compute.close();computeSsh.forEach(s=>s.close());egress.close();proxy?.close();tunnel?.close();server.closeAllConnections();server.close();writePrivate(path.join(state,'control.json'),{...result,phase:'stopped'});fs.rmSync(lock,{force:true});}};
-  }catch(e){clearInterval(timer);viewer?.close();runtime?.close();compute?.close();computeSsh.forEach(s=>s.close());egress?.close();proxy?.close();tunnel?.close();server?.close();fs.rmSync(lock,{force:true});throw e;}
+    return {...result,runtime,egress,compute,async close(){clearInterval(timer);sessions.close();viewer.close();runtime.close();compute.close();computeSsh.forEach(s=>s.close());egress.close();proxy?.close();tunnel?.close();server.closeAllConnections();server.close();writePrivate(path.join(state,'control.json'),{...result,phase:'stopped'});fs.rmSync(lock,{force:true});}};
+  }catch(e){clearInterval(timer);sessions?.close();viewer?.close();runtime?.close();compute?.close();computeSsh.forEach(s=>s.close());egress?.close();proxy?.close();tunnel?.close();server?.close();fs.rmSync(lock,{force:true});throw e;}
 }

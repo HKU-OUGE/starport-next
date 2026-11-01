@@ -1,4 +1,4 @@
-const titles={overview:'总览',servers:'计算服务器',tasks:'服务器任务',dependencies:'依赖与数据',workspaces:'项目工作区',clients:'Claude 工具',services:'服务注册',remote:'远程访问',configuration:'配置迁移',help:'使用帮助'};
+const titles={sessions:'会话',overview:'总览',servers:'计算服务器',tasks:'服务器任务',dependencies:'依赖与数据',workspaces:'项目工作区',clients:'Claude 工具',services:'服务注册',remote:'远程访问',configuration:'配置迁移',help:'使用帮助'};
 const aliases={'task-center':'tasks','service-center':'services','workspace-tools':'workspaces'};
 export function viewName(hash){const key=String(hash||'').replace(/^#/,'');return aliases[key]|| (Object.hasOwn(titles,key)?key:'overview');}
 export function initShell(){

@@ -3,13 +3,15 @@ import {initShell} from './shell.js';
 import {initRemoteSettings} from './remote.js';
 import {initResources} from './resources.js';
 import {initViewer} from './viewer.js';
+import {initSessions} from './sessions.js';
 const $=id=>document.getElementById(id);let status,csrf='',folder='',selected='',polling=false,connectionError=false,sdkRunning=false;
-const errors={authentication_required:'请输入本机访问码。',workspace_verification_required:'请先完成工作区边界验证。',wsl_runtime_requires_windows:'当前主机不是 Windows；WSL2 实机验证待完成。',controlled_proxy_not_running:'受控代理未启动，请配置订阅和节点。',workspace_busy:'该项目正在执行操作，请稍后重试。',workspace_operations_active:'请等待当前工作区操作完成后再验证。',enable_controlled_egress_first:'请先配置并启用受控出口。'};
+const errors={session_archived:'请先恢复归档会话。',session_busy:'会话正在运行。',session_context_unconfirmed_create_new:'上一轮没有取得可续接的上下文，请新建会话。',api_gateway_required:'请先配置 API。',session_stop_requires_reconciliation:'停止结果待核对，请刷新状态。',authentication_required:'请输入本机访问码。',workspace_verification_required:'请先完成工作区边界验证。',wsl_runtime_requires_windows:'当前主机不是 Windows；WSL2 实机验证待完成。',controlled_proxy_not_running:'受控代理未启动，请配置订阅和节点。',workspace_busy:'该项目正在执行操作，请稍后重试。',workspace_operations_active:'请等待当前工作区操作完成后再验证。',enable_controlled_egress_first:'请先配置并启用受控出口。'};
 function problem(e){$('error').textContent=errors[e.message]||e.message;}
 async function api(route,body){const r=await fetch(route,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'content-type':'application/json','x-csrf-token':csrf},body:body===undefined?undefined:JSON.stringify(body),cache:'no-store',signal:AbortSignal.timeout(body===undefined?30000:route.endsWith('/sdk')?360000:150000)});const v=await r.json();if(!r.ok)throw Error(v.error||'request_failed');return v;}
 function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
 const action=(button,fn)=>button.addEventListener('click',async()=>{button.disabled=true;$('error').textContent='';try{await fn();}catch(e){problem(e);}finally{button.disabled=false;}});
 const shell=initShell();
+const sessions=initSessions({api,problem,el});
 const operations=initOperations({api,problem,action,el});
 initRemoteSettings({api,problem,action});
 initResources({api,problem,action});
@@ -27,7 +29,7 @@ const remoteDisplay=$('client-display').value==='remote';$('native-note').textCo
 for(const name of ['browser','desktop','terminal','login','stop'])$('native-'+name).disabled=name==='stop'?false:!report?.passed||(!remoteDisplay&&!status.runtime.wslg);
 $('clients-refresh').disabled=!report?.passed||busy||sdkRunning;$('sdk-run').disabled=sdkRunning||busy||!report?.passed||!status.model?.configured;
 $('sdk-model').textContent=status.model?.configured?'模型：'+(status.model.model||'默认模型')+' · 按实际调用计费，未设置美元预算上限':'尚未配置 API Key；CLI 和 Desktop 的账号登录独立进行。';
-operations.update(status);shell.update(status);
+operations.update(status);shell.update(status);sessions.update(status);
 }catch(e){if(e.message==='authentication_required'){$('startup').hidden=true;$('login').hidden=false;$('console').hidden=true;$('connection').textContent='待登录';shell.logout();}else{connectionError=true;$('startup-state').textContent='连接暂时中断，正在重试。';$('connection').textContent='正在重连';$('connection').className='pill';$('error').textContent='控制端暂时不可达，正在重连。';}}finally{polling=false;}}
 async function files(q){return api(`/api/workspaces/${selected}/files`,q);}
 const joined=name=>folder?folder+'/'+name:name;

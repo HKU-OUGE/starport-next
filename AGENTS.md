@@ -8,6 +8,7 @@ Windows/WSL2 control plane with web project desktops and optional WSLg clients. 
 - Configuration setup/import: read [the setup skill](skills/starport-setup/SKILL.md).
 - Explicit removal: read [the uninstall skill](skills/starport-uninstall/SKILL.md).
 - Architecture and user flow: [DESIGN.md](docs/DESIGN.md).
+- API web sessions, durable context and retry semantics: [SESSIONS.md](docs/SESSIONS.md).
 - Official account clients: [NATIVE-CLIENTS.md](docs/NATIVE-CLIENTS.md).
 - Runtime acceptance: [ACCEPTANCE.md](docs/ACCEPTANCE.md).
 - Local runtime setup and testing: [LOCAL-RUNTIME.md](docs/LOCAL-RUNTIME.md).

@@ -24,6 +24,19 @@ test('SDK and command operations share one workspace execution lease',async()=>{
   assert.equal(launches,1);runtime.close();await completed;
 });
 
+test('SDK cancellation closes only the selected project process and releases its execution lease',async()=>{
+  const children=[];
+  const launch=()=>{const child=new EventEmitter();child.stdin=new PassThrough();child.stdout=new PassThrough();child.stderr=new PassThrough();
+    child.stdin.on('finish',()=>setImmediate(()=>{child.closed=true;child.emit('close',0);}));children.push(child);return child;};
+  const runtime=createWslRuntime('unused',{launch,destinations:{},capabilities:()=>({})});
+  const a=runtime.execute('main',{operation:'sdk',request:{}},{timeout:null}),b=runtime.execute('other',{operation:'sdk',request:{}},{timeout:null});
+  const endedA=assert.rejects(a,/workspace_control_disconnected/),endedB=assert.rejects(b,/workspace_control_disconnected/);
+  await runtime.cancelSdk('main');await endedA;
+  assert.equal(children[0].closed,true);assert.equal(children[1].closed,undefined);
+  assert.deepEqual(runtime.status().active.map(v=>v.workspace),['other']);
+  runtime.close();await endedB;
+});
+
 for(const display of ['wslg','remote'])test(`${display} apps reuse one namespace, reject live display switching and never receive the SDK capability`,async()=>{
   const frames=[],capabilities={modelCapability:'sdk-only-example',computeCapability:'project-example'};let launches=0;
   const launch=()=>{

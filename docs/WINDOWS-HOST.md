@@ -272,3 +272,7 @@ Access 公网验收。最新细项见[验收矩阵](ACCEPTANCE.md)。
 不要为此关闭浏览器沙箱、改为明文凭据存储或放开直接外网。
 
 官方依据：[WSL 安全模型](https://github.com/microsoft/WSL/blob/master/doc/docs/technical-documentation/security.md)、[WSL 配置](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)、[WSLg](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps)、[Access JWT](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/)、[Tunnel Token 文件](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/run-parameters/)。
+
+## 网页会话入口
+
+左侧「会话」复用现有 API 配置，可直接管理项目对话、工具结果、历史和停止；桌面入口保留在「Claude 工具」。安装后按 [会话回归清单](SESSIONS.md#回归检查) 验证，不能只检查窗口是否启动。

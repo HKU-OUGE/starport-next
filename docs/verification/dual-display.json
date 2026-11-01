@@ -8,13 +8,13 @@
       "desktop": "Welcome advances to official login page; keyboard focus responds"
     },
     "remote": {
-      "browser": "pending in this regression run",
-      "claudeCode": "pending in this regression run; prior viewer acceptance recorded separately",
-      "desktop": "Application starts and Unlock Keyring renders in connected expanded local viewer; waiting for user unlock"
+      "browser": "HTTPS page refresh and Claude official login rendered; keyboard address navigation verified",
+      "claudeCode": "Dark terminal background and DejaVu Sans Mono fix verified; arrow keys and login-method menu via public viewer",
+      "desktop": "User unlocked keyring; welcome advances to official login; mouse and Tab focus verified"
     }
   },
   "accountAcceptance": {
-    "officialLogin": "deferred by user",
+    "officialLogin": "deferred by user; no native account conversation claimed",
     "nativeConversationAndModelMcpCalls": "pending; not inferred from configuration or earlier API tests",
     "cliAndDesktopComputeMcpConfigured": true,
     "projectUsageGuidesPresent": true,
@@ -23,7 +23,7 @@
   "switching": {
     "liveOppositeModeRejectedBothDirections": true,
     "projectMarkerPreservedFromWslgToRemote": true,
-    "returnToWslgAndFinalShortcuts": "pending after remote checks"
+    "returnToWslgAndFinalShortcuts": "passed for all three restored shortcuts; same project marker digest and MCP configuration preserved"
   },
   "shortcuts": {
     "originalNamesAndIconsRestored": true,
@@ -32,13 +32,14 @@
     "originalIconsCachedInOwnedState": true,
     "labelsFollowInstalledBrowserInsteadOfTemporaryIconPresence": true,
     "repeatedRegistrationNoDuplicates": true,
-    "projectLaunchTargetsPreserved": true
+    "projectLaunchTargetsPreserved": true,
+    "finalRestoredLinksInvokedFromExplorer": true
   },
   "viewer": {
     "localExpandedCanvas": "passed; visible keyring dialog",
     "reconnectFromUserCurrentTab": "passed once after previous viewer disconnected; same Desktop and keyring dialog restored, password field focused",
-    "reconnectTwiceAndReload": "pending in this regression run",
-    "publicUi": "pending; browser navigation tool timed out, HTTP Access redirect alone does not verify UI",
+    "reconnectTwiceAndReload": "passed locally; original three application processes and windows preserved",
+    "publicUi": "passed after following the real remote-entry link: full page, authenticated canvas, pointer and keyboard focus, disconnect/reconnect",
     "identityOriginAndSingleUseTicketNegativeTests": "passed"
   },
   "tests": {
@@ -49,12 +50,22 @@
     "pythonPassed": 26,
     "sourceCheck": "passed",
     "powershellSyntaxAndUtf8Bom": "passed",
-    "setupAndUninstallSkillValidation": "passed"
+    "setupAndUninstallSkillValidation": "passed",
+    "updatedInstalledBoundary": "passed including controlled proxy failure and recovery",
+    "computeWorkerProcessesPreserved": true
   },
   "limitations": [
-    "Not a complete six-cell GUI acceptance while keyring-dependent checks remain pending",
     "No Windows logout or cold-boot test",
     "No new paid model call or remote compute job in this regression run",
     "No credentials, private addresses or operator paths in this record"
-  ]
+  ],
+  "terminalFix": {
+    "background": "dark with readable foreground/cursor",
+    "font": "DejaVu Sans Mono; replaces locale-dependent CJK cell metrics",
+    "verified": [
+      "remote public viewer",
+      "WSLg"
+    ],
+    "pythonSourceLineEndings": "LF pinned for stable runtime digest across Windows checkout"
+  }
 }
