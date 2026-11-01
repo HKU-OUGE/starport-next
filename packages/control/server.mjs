@@ -12,6 +12,7 @@ import { createCompute,bodyJson,jsonResponse } from './compute.mjs';
 import { createAccess } from './access.mjs';
 import { startTunnel } from './tunnel.mjs';
 import { startComputeSsh } from './ssh-tunnel.mjs';
+import { openWorkspaceFolder } from './explorer.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
 const workspaceId=v=>typeof v==='string'&&/^[a-z][a-z0-9-]{0,47}$/.test(v);
@@ -76,7 +77,7 @@ export async function startHostControl(state,options={}){
           const b=await bodyJson(req,4096);if(!workspaceId(b.id)||workspaces.includes(b.id))throw error('invalid_or_existing_workspace');
           workspaces.push(b.id);writePrivate(workspaceFile,workspaces);return json(res,201,{id:b.id});
         }
-        const m=/^\/api\/workspaces\/([a-z][a-z0-9-]{0,47})\/(verify|exec|files|native|sdk|clients)$/.exec(url.pathname);
+        const m=/^\/api\/workspaces\/([a-z][a-z0-9-]{0,47})\/(verify|exec|files|native|sdk|clients|open-folder)$/.exec(url.pathname);
         if(req.method==='POST'&&m&&workspaces.includes(m[1])){
           const [,_id,operation]=m,b=await bodyJson(req);
           if(verifying)throw error('workspace_verification_in_progress');
@@ -96,9 +97,13 @@ export async function startHostControl(state,options={}){
             receipt.runtimeDigest=runtime.digest();runtime.reports.set(_id,receipt);return json(res,200,receipt);
             }finally{verifying=false;}
           }
-          if(['exec','native','sdk','clients'].includes(operation)){
+          if(['exec','native','sdk','clients','open-folder'].includes(operation)){
             const proof=runtime.reports.get(_id);
             if(!proof?.passed||proof.runtimeDigest!==runtime.digest()||Date.now()-Date.parse(proof.checkedAt)>86400000)throw error('workspace_verification_required');
+            if(operation==='open-folder'){
+              if(policy.mode!=='local'||process.platform!=='win32')throw error('local_windows_action_required');
+              return json(res,200,await openWorkspaceFolder(options.wslState||path.join(state,'wsl'),_id));
+            }
             if(operation==='clients'){
               const r=await runtime.execute(_id,{operation:'exec',argv:['/usr/bin/python3','-I','/opt/starport/client-status.py']},{timeout:45000});
               if(r.code!==0)throw error('client_status_failed');return json(res,200,JSON.parse(r.stdout));

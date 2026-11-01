@@ -1,0 +1,62 @@
+{
+  "checkedOn": "2026-11-01",
+  "controlPlatform": "windows-x64",
+  "workspace": "owned-wsl2",
+  "computeTransport": "independent-dsw-ssh-rpc",
+  "workerRuntime": "gvisor",
+  "independentOfPiRuntime": true,
+  "credentialsRemainOnWindows": true,
+  "independentRuntimeCopiesVerified": true,
+  "newCloudInstancesCreated": false,
+  "existingPiModified": false,
+  "cpuIsolationProbePassed": true,
+  "network": {
+    "directIpv4Denied": true,
+    "directIpv6Denied": true,
+    "dnsDenied": true,
+    "metadataDenied": true,
+    "controlledHttps": true,
+    "unavailableProxyFails": true,
+    "operatorFilesAbsent": true,
+    "operatorEnvironmentAbsent": true,
+    "rootfsReadonly": true
+  },
+  "gpu": {
+    "sharedUseAuthorized": true,
+    "testedGpuCount": 1,
+    "cudaMemoryRoundTripPassed": true,
+    "resourcesReleased": true
+  },
+  "configuredLimits": { "cpus": 255, "memoryGiB": 1600, "gpus": 8, "parallel": null },
+  "observedNodeCapacity": { "logicalCpus": 195, "memoryGiB": 503, "gpus": 4 },
+  "threeConcurrentCpuJobs": true,
+  "capacityRejections": ["cpu_capacity", "memory_capacity", "gpu_capacity"],
+  "cancellationAndRelease": true,
+  "artifactHashVerified": true,
+  "staleEgressSocketRecovery": true,
+  "sdk": {
+    "model": "claude-opus-5-5",
+    "realTool": "Bash",
+    "submittedRemoteGpuJob": true,
+    "downloadedAndReadArtifact": true,
+    "result": "NEXT_GPU_VERIFIED",
+    "reportedCostUsd": 0.065213,
+    "currentUsdBudgetCap": null
+  },
+  "explorerButtonOpenedActualProjectFolder": true,
+  "panelDesktopAndMobileChecked": true,
+  "sourceTests": {
+    "windows": { "passed": 65, "skipped": 3, "failed": 0 },
+    "wsl2": { "passed": 67, "skipped": 1, "failed": 0 },
+    "pythonWorker": { "passed": 10, "failed": 0 },
+    "sourceAuditPassed": true,
+    "setupSkillValidationPassed": true
+  },
+  "limitations": [
+    "physical node has less capacity than the configured ceiling",
+    "no cross-service global scheduler or hard GPU memory quota",
+    "official-account CLI and Desktop tool calls still require login acceptance",
+    "full host cold boot and automatic login startup not tested"
+  ],
+  "scope": "sanitized-summary-not-a-portable-runtime-authorization"
+}

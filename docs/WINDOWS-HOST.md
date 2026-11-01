@@ -95,7 +95,7 @@ powershell -ExecutionPolicy Bypass -File scripts/setup-wsl-clients.ps1 -State pr
 
 这些是增补字段。密钥文件只保留在 Windows 私有目录，启动时指定 `start-control.ps1 -Client api`。SDK 获得可撤销的本机网关令牌；官方账号客户端使用自己的登录，不借用 SDK 的 API 配置。模型由控制侧固定。
 
-完成边界验证后可在“Agent SDK”区运行一个小型文件读写任务。当前入口最多 8 轮、300 秒，并设置 SDK 的 0.25 美元预算阈值；这是 SDK 的软限制，最后一次模型调用可能超过阈值，不是账单硬上限。控制端网关另有限次请求保护。原始事件保存在项目 `.starport-events/` 中，显示文本单独转换，文件路径与代码字节不改写。刷新网页后不要重复提交结果未知的任务，先检查事件与产物。
+完成边界验证后可在“Agent SDK”区运行一个小型文件读写任务。当前入口最多 8 轮、300 秒，不设置 `maxBudgetUsd` 美元预算上限，按实际模型调用计费。控制端网关另有限次请求保护；轮数、时间、请求数与费用上限是不同约束。原始事件保存在项目 `.starport-events/` 中，显示文本单独转换，文件路径与代码字节不改写。刷新网页后不要重复提交结果未知的任务，先检查事件与产物。
 
 ## 升级已有发行版
 
@@ -123,6 +123,8 @@ node bin/starport.mjs wsl update-runtime --state private/wsl
 路径相对这份配置文件。可选 `nodesFile` 指向包含 `nodes` 与 `hosts` 的已解析节点 JSON；不把任意订阅规则直接当作出口规则。私有目录使用当前用户 ACL。请在启动前配置；暂未提供运行中切换配置的管理表单。
 
 连接既有隔离训练 API：
+
+也可使用本仓库的[独立 SSH／DSW worker](COMPUTE.md)，不依赖 Pi 的客户端或服务器服务。
 
 ```json
 {
@@ -190,6 +192,12 @@ Windows 安装 `cloudflared`，把这条 Tunnel 的应用路由配置为本机 `
 源站核验 JWT 的签名、issuer、audience、有效期和允许邮箱，再校验 Origin／CSRF。只有邮箱头不构成授权。本机登录入口拒绝伪造的转发头。连接器进程运行不等于公网访问验收通过；本次没有修改真实域名、Tunnel 或访问策略。
 
 ## 文件与区域设置
+
+本机面板的“项目文件”区提供 **在资源管理器中打开**，打开当前项目的 WSL2 文件夹。
+路径形如 `\\wsl.localhost\StarportWork-…\var\lib\starport-workspaces\main\project`，
+对应工作区内的 `/workspace`。Windows 中的修改会直接同步到项目；无需另做文件复制。
+按钮仅在 Windows 本机登录和当前边界验证通过时可用，远程 Access 页面不启动本机程序。
+接口只接收已登记项目名，不接受任意 Windows 路径或 Shell 命令。
 
 Windows 面板能管理项目文件，单文件当前上限 64 MiB，读写校验 SHA-256；不开放整个发行版的管理目录。Windows 管理员也可以通过 Windows 自身的 WSL 文件入口访问发行版，这不改变工作区权限。
 

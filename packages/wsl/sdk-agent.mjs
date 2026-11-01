@@ -11,7 +11,7 @@ const env={...process.env,CLAUDE_CONFIG_DIR:'/home/agent/.claude-sdk'};
 delete env.CLAUDE_CODE_OAUTH_TOKEN;delete env.ANTHROPIC_AUTH_TOKEN;
 const options={cwd:'/workspace',env,model:request.model,tools:['Read','Write','Edit','Glob','Grep','Bash'],
   allowedTools:['Read','Write','Edit','Glob','Grep','Bash'],permissionMode:'acceptEdits',settingSources:[],
-  persistSession:true,maxTurns:8,maxBudgetUsd:0.25,effort:'low',includePartialMessages:false};
+  persistSession:true,maxTurns:8,effort:'low',includePartialMessages:false};
 if(request.resume){if(!/^[a-f0-9-]{36}$/.test(request.resume))throw Error('invalid_session_id');options.resume=request.resume;}
 const logs='/workspace/.starport-events';fs.mkdirSync(logs,{recursive:true,mode:0o700});
 const log=logs+'/wsl-sdk-'+Date.now()+'.jsonl';

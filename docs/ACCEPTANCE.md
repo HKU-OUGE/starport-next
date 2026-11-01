@@ -73,6 +73,21 @@ npm run check
 
 这些测试不包含官方账号授权后的 CLI／Desktop 工具调用、账号重启续接、WSLg 剪贴板所有格式、Windows 整机冷启动恢复、登录启动、真实 DSW 任务或 Access 公网入口。WSLg 按用户明确选择共享 Windows 显示和剪贴板，不声明身份隔离。摘要证据见 [Windows WSL2 验收](verification/windows-wsl2.json)，含实际身份、节点和令牌的收据只保存在本机私有目录。
 
+## 独立远端计算与 Windows 文件入口（2026-11-01）
+
+已在现有授权 DSW 节点独立部署 Next worker，Windows 凭据、ProxyClient、Node、代理、
+服务器 rootfs／runsc 副本和状态目录均不依赖 Pi 进程或安装目录。未创建新云实例，
+未替换 Pi 服务或任务。真实验收包括 CPU 区域／文件／网络边界、单卡 CUDA 显存写入与
+回读、Unicode 文件、产物摘要、取消和资源释放；Claude SDK 通过 Bash 实际提交 GPU
+任务、查询并下载结果，返回 `NEXT_GPU_VERIFIED`，SDK 报告费用为 0.065213 美元。
+
+配置上限为 255 CPU、1600 GiB、8 GPU，`parallel: null` 不设置任务数上限；当前节点
+实际可见 195 逻辑 CPU、约 503 GiB、4 GPU。三项小任务同时运行通过，超出当前 CPU、
+内存、GPU 容量的请求均拒绝；测试任务均已取消并释放。共享 GPU 已明确授权，不声明
+跨服务统一预留或硬隔离显存额度。SDK 不再设置美元预算阈值，8 轮与 300 秒限制另行保留。
+Windows 面板按钮已实际打开当前 WSL 项目目录，桌面和手机布局通过；浏览器有 Zotero
+扩展连接错误，未见本应用对应功能失败。细项见 [独立计算验收](verification/remote-worker.json)。
+
 ## 隔离测试需要包含的负例
 
 - 删除代理环境变量后尝试直接 socket；尝试 IPv6、独立 DNS、UDP 和云元数据。

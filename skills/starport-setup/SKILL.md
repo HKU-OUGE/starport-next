@@ -19,6 +19,9 @@ Linux pipe tests as Windows boot, WSLg, or official-account acceptance.
 Report the installation, login, and runtime verification of Claude Code, Agent SDK,
 Claude Desktop, and the browser separately. A working control panel and verified
 WSL workspace do not establish that these clients are installed or configured.
+When handing off a local Windows workspace, verify the panel's Explorer button
+opens that project's WSL folder. Use the owned distribution receipt and fixed
+project path; do not accept arbitrary host paths or launch Explorer from Access.
 For an existing owned distribution, finish active jobs and GUI sessions before
 `wsl update-runtime`; verify the old runtime digest and reconcile an interrupted
 migration. Restart the owned control process and rerun boundary checks afterwards.
@@ -63,6 +66,9 @@ Never reuse an old runtime's successful report to authorize a new version.
    After explicit API authorization, run one small SDK file task through the
    Windows gateway, verify the artifact and report SDK cost separately from
    official-account login. Keep the real key on Windows and transcripts private.
+   The WSL SDK does not set a USD budget ceiling. Report actual model cost; do not
+   restore an arbitrary monetary cap after the user has removed it. The current
+   eight-turn and 300-second limits are separate from billing and remote compute.
 7. Before registering a usable deployment, ask whether it should start after the
    current user logs in, unless the current session already contains that choice.
    The current local adapter cannot register login startup; do not ask for a startup preference
@@ -82,3 +88,15 @@ Never reuse an old runtime's successful report to authorize a new version.
 Keep configuration secrets on the control side. Do not copy deployment credentials
 or actual host identities into this repository or the agent workspace. Normal
 messages need no extra semantic filter or send preview.
+
+For remote computation, follow [COMPUTE.md](../../docs/COMPUTE.md). Reusing an old
+credential does not require keeping its application as a runtime dependency.
+Deploy the independent Next worker additively; copy and verify runtime dependencies,
+keep old jobs intact, and obtain the intended shared/exclusive GPU allocation.
+Validate CPU isolation, one authorized GPU task, artifacts, cancellation and resource
+release through the actual project API. Place the project compute client and usage
+instructions in the workspace, then separately verify a Claude tool call. Never give
+the model a management SSH command or cloud credential. Record unresolved submissions
+before retrying and report cross-service scheduling and quota limits accurately.
+Keep configured ceilings separate from physical node capacity. `parallel: null`
+removes the fixed concurrent-job count, but resource admission remains enforced.

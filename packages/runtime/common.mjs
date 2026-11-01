@@ -7,7 +7,9 @@ import { spawn, spawnSync } from 'node:child_process';
 export const error = code => Object.assign(new Error(code), { code });
 export function cleanEnv(extra = {}) {
   const env = {};
-  for (const key of ['PATH','SystemRoot','WINDIR','COMSPEC','PATHEXT','TEMP','TMP','TMPDIR'])
+  // Windows OpenSSH exits with code 255 before diagnostics if ProgramData is absent.
+  // This is operator process environment only; guest environments are rebuilt separately.
+  for (const key of ['PATH','SystemRoot','WINDIR','ProgramData','COMSPEC','PATHEXT','TEMP','TMP','TMPDIR'])
     if (process.env[key]) env[key] = process.env[key];
   return { ...env, LANG: 'C.UTF-8', TZ: 'UTC', ...extra };
 }

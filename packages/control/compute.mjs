@@ -36,7 +36,7 @@ export async function createCompute({state,connection,fetcher=fetch}){
   async function upstream(method,route,payload){
     if(!base)throw error('compute_not_configured');
     let r;try{r=await fetcher(new URL(route,base),{method,headers:{authorization:'Bearer '+connection.token,'content-type':'application/json'},
-      body:payload===undefined?undefined:JSON.stringify(payload),redirect:'error',signal:AbortSignal.timeout(30000)});}catch{throw error(method==='POST'?'compute_outcome_unknown_check_before_retry':'compute_unavailable');}
+      body:payload===undefined?undefined:JSON.stringify(payload),redirect:'error',signal:AbortSignal.timeout(method==='POST'?180000:30000)});}catch{throw error(method==='POST'?'compute_outcome_unknown_check_before_retry':'compute_unavailable');}
     return r;
   }
   async function health(){
@@ -46,7 +46,8 @@ export async function createCompute({state,connection,fetcher=fetch}){
       // Management endpoint, instance IDs, filesystem roots and provider metadata
       // are intentionally not included in the workspace-facing health schema.
       return {ready:v.ready===true,acceptingNewJobs:v.accepting_new_jobs===true,
-        limits:publicFields(v.limits,['server_max_cpus','server_max_memory_gib','max_timeout']),
+        limits:publicFields(v.limits,['server_max_cpus','server_max_memory_gib','server_max_gpus','max_timeout']),
+        configuredLimits:publicFields(v.configuredLimits,['cpus','memory_gib','gpus','timeout']),
         capacity:publicFields(v,['max_parallel','max_parallel_server','max_parallel_local'])};
     }catch{return {ready:false,error:'compute_unavailable'};}
   }
@@ -65,7 +66,7 @@ export async function createCompute({state,connection,fetcher=fetch}){
         const requestId=crypto.randomBytes(16).toString('hex');
         registry[requestId]={workspace:scope,outcomeUnknown:true,submittedAt:new Date().toISOString()};writePrivate(file,registry);
         const r=await upstream('POST','/jobs',d),v=await r.json();
-        if(!r.ok){delete registry[requestId];writePrivate(file,registry);return jsonResponse(res,r.status,{error:safeCode(v.error)});}
+        if(!r.ok){if(!String(v.error).includes('outcome_unknown'))delete registry[requestId];writePrivate(file,registry);return jsonResponse(res,r.status,{error:safeCode(v.error)});}
         if(!jobId(v.id))throw error('compute_invalid_job_response');
         registry[v.id]={workspace:scope,cached:publicJob(v)};delete registry[requestId];writePrivate(file,registry);
         return jsonResponse(res,201,publicJob(v));

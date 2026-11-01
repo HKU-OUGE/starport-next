@@ -12,6 +12,11 @@
 
 ## D1 — 一条可验收的远端链路
 
+已新增独立 Next SSH／DSW 计算 worker 与项目计算客户端，见 [COMPUTE.md](COMPUTE.md)。
+Windows／WSL2 中的 SDK 已实际提交远端单卡 CUDA 任务、读取日志并下载结果；worker 的
+CPU 隔离、网络负例和取消释放分别验证。它不依赖 Pi 的客户端／进程／服务器目录，
+也不等于 Agent 整体已部署到 DSW 或完整云端创建向导完成。
+
 范围：一台电脑 + 一个 Linux／DSW 节点 + 一个独立项目环境。
 
 - 复用 Egress Manager 事务及管理通道；针对当前运行时做真实断线测试。

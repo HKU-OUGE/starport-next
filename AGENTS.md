@@ -12,6 +12,7 @@ Windows/WSL2 control plane with optional WSLg clients. Consult
 - Runtime acceptance: [ACCEPTANCE.md](docs/ACCEPTANCE.md).
 - Local runtime setup and testing: [LOCAL-RUNTIME.md](docs/LOCAL-RUNTIME.md).
 - Windows control plane and WSL2 projects: [WINDOWS-HOST.md](docs/WINDOWS-HOST.md).
+- Independent remote compute and Claude task usage: [COMPUTE.md](docs/COMPUTE.md).
 
 Keep the operator control plane outside the whole-agent workspace. A native
 Desktop adapter must connect to a scoped SSH/SFTP endpoint inside that boundary.

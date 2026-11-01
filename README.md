@@ -64,6 +64,7 @@ node bin/starport.mjs local chat --state private/local-workspace --prompt-file p
 | [安全边界](SECURITY.md) | 整个 Agent 隔离、凭据、网络和依赖可见范围 |
 | [复用计划](docs/REUSE.md) | 从既有网络、会话与算力实现提取什么 |
 | [验收矩阵](docs/ACCEPTANCE.md) | 哪些已测，哪些必须在目标机器验收 |
+| [独立计算资源](docs/COMPUTE.md) | SSH／DSW worker、CPU／GPU 任务与 Claude 调用 |
 | [Agent 入口](AGENTS.md) | 安装、开发和接手指引 |
 
 ```text
