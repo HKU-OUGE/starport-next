@@ -23,7 +23,7 @@
 
 ## D2 — 网页与手机
 
-已实现独立控制面板、项目文件操作、计算服务状态、Access 源站校验和可选 Tunnel 连接器。Windows／WSL2 接入层见 [Windows 控制端](WINDOWS-HOST.md)。完整会话 UI 与云端初始化仍待以下阶段；当前不把接口测试视为真实 DSW 或公网验证。
+已实现独立控制面板、项目文件操作、计算服务状态、Access 源站校验和可选 Tunnel 连接器。Windows／WSL2 增加 SDK 单任务与原生客户端入口，见 [Windows 控制端](WINDOWS-HOST.md)。完整会话 UI 与云端初始化仍待以下阶段；当前不把接口测试视为真实 DSW 或公网验证。
 
 - 选定 CloudCLI 的适配方式或复用现有面板组件；先做单个后端会话所有者。
 - 完成会话、工具卡片、审批、文件、媒体、模型／effort 和项目分组。
@@ -35,6 +35,8 @@
 ## D3 — 原生 Desktop
 
 已加入本地 guest 内的官方 CLI／Linux Desktop 安装、账号模式和受密码保护的本机画面入口。登录浏览器也在 guest 内，不复用宿主浏览器。实际验收状态见 [官方账号客户端](NATIVE-CLIENTS.md)。
+
+Windows 另提供 WSLg 独立窗口，只有显式选择后共享 Windows 显示和剪贴板；客户端仍在项目文件与网络边界内。安装、窗口启动、账号授权与工具调用分别记录，不以其中一项替代其他项。Cowork 不在这条 WSLg 实现的交付范围内。
 
 提供项目内部的 SSH/SFTP 接入。验证自动安装 Agent、终端、文件树、插件、代理与长任务；要求所有路径都不能落到 DSW 宿主。API 网关模式的官方 Remote Control 限制仍保留，通过自建网页提供远程控制。
 
@@ -49,4 +51,4 @@
 
 本地依赖安装脚本已提供；系统登录启动、原生发布包与完整生命周期安装器仍待实现。Linux 测试成功不等于 Windows 真实安装成功。
 
-Windows 新增 `setup-control.ps1`、`setup-wsl.ps1` 和 `start-control.ps1`；不安装 QEMU，不更改现有 WSL 全局配置。WSL2 内层使用独立命名空间、最小挂载与 syscall 策略，Linux 同代码验证已通过，Windows 实机仍待验收。
+Windows 提供 `setup-control.ps1`、`setup-wsl.ps1`、`setup-wsl-clients.ps1`、`start-control.ps1` 和安装完成后的访问码窗口；不安装 QEMU，不更改现有 WSL 全局配置。WSL2 内层使用独立命名空间、最小挂载与 syscall 策略，Windows 实机导入、发行版重启、文件／网络边界和真实 SDK Write／Read 已通过。Windows 整机冷启动恢复和登录启动未作为通过项。

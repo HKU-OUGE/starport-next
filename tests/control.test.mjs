@@ -89,6 +89,29 @@ test('control configuration resolves only relative private paths',t=>{
   const d=temp(t),f=path.join(d,'config.json');fs.writeFileSync(f,JSON.stringify({format:'starport-host-control',version:1,wslState:'../escape'}));
   assert.throws(()=>loadControlOptions(f),/relative_control_path/);
 });
+test('WSLg configuration is opt-in and rejects ambiguous string values',t=>{
+  const f=path.join(temp(t),'config.json'),base={format:'starport-host-control',version:1,wslState:'wsl'};
+  fs.writeFileSync(f,JSON.stringify(base));assert.equal(loadControlOptions(f).wslg,false);
+  fs.writeFileSync(f,JSON.stringify({...base,wslg:true}));assert.equal(loadControlOptions(f).wslg,true);
+  fs.writeFileSync(f,JSON.stringify({...base,wslg:'false'}));assert.throws(()=>loadControlOptions(f),/invalid_wslg_configuration/);
+});
+test('control rejects stale runtime verification before SDK or native launch',async t=>{
+  const d=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-proof-'));
+  const s=await startHostControl(d,{port:0,wslg:true});t.after(async()=>{await s.close();fs.rmSync(d,{recursive:true,force:true});});
+  const key=JSON.parse(fs.readFileSync(path.join(d,'panel-key.json'))).key;
+  const headers={origin:s.url.slice(0,-1),'content-type':'application/json'};
+  const login=await fetch(s.url+'api/login',{method:'POST',headers,body:JSON.stringify({key})});
+  headers.cookie=login.headers.get('set-cookie').split(';')[0];
+  const status=await(await fetch(s.url+'api/status',{headers})).json();headers['x-csrf-token']=status.csrf;
+  s.runtime.reports.set('main',{passed:true,checkedAt:new Date().toISOString(),runtimeDigest:'previous-runtime'});
+  assert.equal(s.runtime.status().reports[0].passed,false);
+  for(const operation of ['sdk','native','clients']){
+    const r=await fetch(s.url+'api/workspaces/main/'+operation,{method:'POST',headers,body:JSON.stringify({app:'browser',prompt:'test'})});
+    assert.equal(r.status,403);assert.equal((await r.json()).error,'workspace_verification_required');
+  }
+  s.runtime.reports.set('main',{passed:true,checkedAt:new Date(Date.now()-86400001).toISOString(),runtimeDigest:s.runtime.digest()});
+  assert.equal(s.runtime.status().reports[0].passed,false);
+});
 test('tunnel needs Access and reads its token from a private file, not argv or workspace environment',t=>{
   const d=temp(t),tokenFile=path.join(d,'tunnel-token');fs.writeFileSync(tokenFile,'example-tunnel-token',{mode:0o600});
   assert.throws(()=>startTunnel(d,{tokenFile,binary:'example-cloudflared'}),/access_required/);

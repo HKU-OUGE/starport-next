@@ -50,15 +50,28 @@ def bridge(port, channel):
 
 
 def main():
-    request = json.load(sys.stdin)
+    request = json.loads(sys.stdin.readline())
     for port, channel in [(13128, 'proxy'), (18080, 'model'), (18081, 'compute')]:
         bridge(port, channel)
     # These are project capabilities, not operator tokens or endpoint addresses.
-    if request.get('modelCapability'):
+    if request.get('modelCapability') and request['operation'] != 'native':
         os.environ['ANTHROPIC_BASE_URL'] = 'http://127.0.0.1:18080'
         os.environ['ANTHROPIC_API_KEY'] = request['modelCapability']
     os.environ['STARPORT_COMPUTE_URL'] = 'http://127.0.0.1:18081'
     os.environ['STARPORT_COMPUTE_TOKEN'] = request.get('computeCapability', 'unavailable')
+    if request['operation'] == 'native':
+        for name in ['ANTHROPIC_API_KEY', 'ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN']:
+            os.environ.pop(name, None)
+        # This trusted supervisor owns the control pipe. Applications get a TTY
+        # or /dev/null, never the operator protocol on stdin.
+        import runpy
+        runpy.run_path('/opt/starport/native-session.py', run_name='__main__')
+        return 0
+    if request['operation'] == 'sdk':
+        if not request.get('modelCapability'):
+            raise ValueError('api_gateway_required')
+        return subprocess.run(['/usr/local/bin/node', '/opt/starport/sdk-agent.mjs'],
+                              input=json.dumps(request['request']), text=True).returncode
     if request['operation'] == 'files':
         result = subprocess.run(['/usr/bin/python3', '-I', '/opt/starport/files.py'],
                                 input=json.dumps(request['request']), text=True)

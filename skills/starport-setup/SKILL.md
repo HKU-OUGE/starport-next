@@ -10,11 +10,19 @@ Read [the current delivery status](../../docs/ROADMAP.md) first. Local workspace
 an ingress or verified isolation when only a profile was imported.
 
 For the Windows-hosted control-plane route, use [WINDOWS-HOST.md](../../docs/WINDOWS-HOST.md):
-`setup-control.ps1`, `setup-wsl.ps1`, then `start-control.ps1`. Preserve existing
+`setup-control.ps1`, `setup-wsl.ps1`, `setup-wsl-clients.ps1` when clients are requested,
+then `start-control.ps1`. Preserve existing
 WSL distributions and global settings. Model processes must use the inner project
 boundary, never the distribution's administrative shell. Keep Windows credentials
 out of WSL and set zh_TW.UTF-8 / Asia/Taipei inside the workspace. Do not present
 Linux pipe tests as Windows boot, WSLg, or official-account acceptance.
+Report the installation, login, and runtime verification of Claude Code, Agent SDK,
+Claude Desktop, and the browser separately. A working control panel and verified
+WSL workspace do not establish that these clients are installed or configured.
+For an existing owned distribution, finish active jobs and GUI sessions before
+`wsl update-runtime`; verify the old runtime digest and reconcile an interrupted
+migration. Restart the owned control process and rerun boundary checks afterwards.
+Never reuse an old runtime's successful report to authorize a new version.
 
 1. Determine whether the user wants one computer, a computer plus an existing
    server, or a server-hosted control plane. Preserve existing deployments.
@@ -38,15 +46,38 @@ Linux pipe tests as Windows boot, WSLg, or official-account acceptance.
    retrying. Never bypass host-key checking, isolation, or a closed egress.
 6. For subscription-account clients, follow [NATIVE-CLIENTS.md](../../docs/NATIVE-CLIENTS.md).
    Install the official CLI, Desktop, and login browser inside the verified guest.
-   Use native mode without an API Key gateway. Never open the operator browser for
+   The QEMU native mode has no API Key gateway. WSL2 may enable the SDK gateway
+   with `-Client api`, but its native supervisor must strip all model/API/OAuth
+   environment credentials and use a separate account config. Never open the operator browser for
    authentication or copy an existing client token into the Agent SDK. Keep account
    authorization pending until the user completes the official login; installation
    alone does not validate an account session.
+   WSLg is disabled by default. If independent windows are requested, explain that
+   the display and Windows clipboard are shared and may reveal identity, company,
+   location or document contents. Record an explicit choice with `-EnableWslg`
+   (or `wslg: true`); an existing choice in the conversation is sufficient.
+   Do not claim manual clipboard isolation in this mode, disable Chromium's
+   sandbox, or weaken network/filesystem isolation to get a window to launch.
+   Let the user create/unlock the private Linux keyring in its own window; never
+   request its password in chat or bypass it with a plaintext password store.
+   After explicit API authorization, run one small SDK file task through the
+   Windows gateway, verify the artifact and report SDK cost separately from
+   official-account login. Keep the real key on Windows and transcripts private.
 7. Before registering a usable deployment, ask whether it should start after the
    current user logs in, unless the current session already contains that choice.
    The current local adapter cannot register login startup; do not ask for a startup preference
    as though registration had been implemented. Login startup and boot-before-login
    are different capabilities.
+8. After a Windows installation finishes and the control service is healthy, open
+   the local access-code window using [show-access-code.ps1](../../scripts/show-access-code.ps1)
+   with `powershell -NoProfile -STA -ExecutionPolicy Bypass -File scripts/show-access-code.ps1
+   -State <actual-control-state>`. It must offer a selectable code and a copy button.
+   Use this deployment's actual state directory, including custom external paths;
+   do not assume an AppData path. Pass only the state path to the helper, never the
+   code itself, and do not put the code in chat, logs, command arguments, or URLs.
+   Copy only after the user clicks. This is a control-panel handoff, not confirmation
+   that model clients are configured. In a headless session, report that no window
+   was displayed and provide the local code-file path and retrieval command.
 
 Keep configuration secrets on the control side. Do not copy deployment credentials
 or actual host identities into this repository or the agent workspace. Normal

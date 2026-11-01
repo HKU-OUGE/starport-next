@@ -1,7 +1,8 @@
 # Starport Next — Agent entrypoint
 
 Read [README.md](README.md), [CONTEXT.md](CONTEXT.md), and [SECURITY.md](SECURITY.md).
-The current release includes portable configuration and a local QEMU workspace. Consult
+The current release includes portable configuration, local QEMU workspaces, and a
+Windows/WSL2 control plane with optional WSLg clients. Consult
 [ROADMAP.md](docs/ROADMAP.md) before claiming that an adapter is implemented.
 
 - Configuration setup/import: read [the setup skill](skills/starport-setup/SKILL.md).
@@ -14,6 +15,9 @@ The current release includes portable configuration and a local QEMU workspace. 
 
 Keep the operator control plane outside the whole-agent workspace. A native
 Desktop adapter must connect to a scoped SSH/SFTP endpoint inside that boundary.
+The WSLg adapter runs Linux clients inside the project boundary instead; shared
+Windows display/clipboard requires an explicit choice. Keep Chromium's sandbox,
+and report account authorization separately from package or SDK verification.
 Never fall back to an administrative DSW shell, host tools, host environment,
 direct egress, or an unverified runtime to make a compatibility check pass.
 

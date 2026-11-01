@@ -5,7 +5,10 @@ import { spawn,spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { cleanEnv } from '../packages/runtime/common.mjs';
 const source=fileURLToPath(new URL('../packages/wsl/',import.meta.url));
-export function fixture(directory){
+export function fixture(directory,{gui=false}={}){
+  // The root controller launches bwrap as the project user. Only public fixture
+  // code needs traversal; prepare_workspace keeps project data private.
+  if(process.getuid()===0)fs.chmodSync(directory,0o755);
   const code=path.join(directory,'code'),etc=path.join(code,'etc'),pub=path.join(code,'public');
   fs.mkdirSync(pub,{recursive:true});fs.mkdirSync(etc,{recursive:true});
   fs.mkdirSync(path.join(etc,'locale-data'),{recursive:true});
@@ -19,6 +22,13 @@ export function fixture(directory){
   const python=`import importlib.util,pathlib,os
 s=importlib.util.spec_from_file_location('runner',${JSON.stringify(path.join(source,'runner.py'))})
 m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+${gui?`original_args=m.sandbox_args
+original_filter=m.seccomp_filter
+def gui_args(*args,**kwargs):
+ kwargs['gui']=True
+ return original_args(*args,**kwargs)
+m.sandbox_args=gui_args
+m.seccomp_filter=lambda gui=False:original_filter(gui=True)` : ''}
 m.serve(pathlib.Path(${JSON.stringify(path.join(directory,'workspaces'))}),pathlib.Path(${JSON.stringify(code)}))`;
   return ()=>spawn('/usr/bin/python3',['-I','-B','-c',python],{env:cleanEnv(),stdio:['pipe','pipe','pipe']});
 }

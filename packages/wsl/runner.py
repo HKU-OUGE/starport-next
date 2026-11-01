@@ -14,6 +14,7 @@ import re
 import resource
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import tempfile
@@ -24,7 +25,7 @@ CODE = pathlib.Path('/opt/starport-wsl')
 UID = 1000
 
 
-def seccomp_filter():
+def seccomp_filter(gui=False):
     """Close non-IP escape paths (notably Hyper-V/vsock) after bwrap setup."""
     lib = ctypes.CDLL('libseccomp.so.2', use_errno=True)
     class Comparison(ctypes.Structure):
@@ -54,7 +55,11 @@ def seccomp_filter():
             deny('socket', [(0, 4, domain, 0)])  # EQ
         deny('socket', [(0, 5, 11, 0)])  # GE; only UNIX, INET, INET6 survive.
         deny('socketpair', [(0, 1, 1, 0)])  # NE AF_UNIX
-        for name in ['setns', 'unshare', 'mount', 'umount2', 'pivot_root', 'move_mount',
+        # Chromium/Electron create nested user/PID/network namespaces for their
+        # own sandbox. They cannot join an ancestor or mount outside this root.
+        if not gui:
+            deny('unshare')
+        for name in ['setns', 'mount', 'umount2', 'pivot_root', 'move_mount',
                      'open_tree', 'fsopen', 'fsconfig', 'fsmount', 'fspick', 'mount_setattr',
                      'bpf', 'perf_event_open', 'ptrace', 'process_vm_readv', 'process_vm_writev',
                      'keyctl', 'add_key', 'request_key', 'userfaultfd', 'io_uring_setup',
@@ -92,12 +97,14 @@ def prepare_workspace(base, name, uid=UID):
     return workspace
 
 
-def sandbox_args(workspace, runtime, etc, code, uid=UID, seccomp_fd=None):
-    args = ['/usr/bin/bwrap', '--unshare-all', '--unshare-user', '--disable-userns',
+def sandbox_args(workspace, runtime, etc, code, uid=UID, seccomp_fd=None, gui=False):
+    args = ['/usr/bin/bwrap', '--unshare-all', '--unshare-user',
             '--die-with-parent', '--new-session', '--hostname', 'starship',
             '--uid', str(uid), '--gid', str(uid), '--cap-drop', 'ALL',
             '--clearenv', '--ro-bind', '/usr', '/usr']
-    # No root bind, Windows drives, WSL interop, host home, D-Bus or display sockets.
+    if not gui:
+        args += ['--disable-userns']
+    # No root bind, Windows drives, WSL interop, host home or host D-Bus.
     for n in ['bin', 'sbin', 'lib', 'lib64']:
         p = pathlib.Path('/') / n
         if p.is_symlink():
@@ -121,22 +128,44 @@ def sandbox_args(workspace, runtime, etc, code, uid=UID, seccomp_fd=None):
         args += ['--setenv', k, v]
     if (etc / 'locale-data').is_dir():
         args += ['--setenv', 'LOCPATH', '/etc/locale-data']
+    # Only selected, public client dependencies are exposed read-only.
+    for dependency in ['/opt/google/chrome', '/opt/claude-desktop']:
+        if pathlib.Path(dependency).is_dir():
+            args += ['--ro-bind', dependency, dependency]
+    if gui:
+        wayland = pathlib.Path('/mnt/wslg/runtime-dir/wayland-0')
+        x11 = pathlib.Path('/tmp/.X11-unix/X0')
+        if not all(p.exists() and stat.S_ISSOCK(p.stat().st_mode) for p in [wayland, x11]):
+            raise ValueError('wslg_display_unavailable')
+        args += ['--perms', '0700', '--dir', '/run/user/1000',
+                 '--ro-bind', str(wayland), '/run/user/1000/wayland-0',
+                 '--tmpfs', '/tmp/.X11-unix', '--ro-bind', str(x11), '/tmp/.X11-unix/X0',
+                 '--setenv', 'XDG_RUNTIME_DIR', '/run/user/1000',
+                 '--setenv', 'WAYLAND_DISPLAY', 'wayland-0', '--setenv', 'DISPLAY', ':0',
+                 '--setenv', 'STARPORT_WSLG_SHARED', '1']
     if seccomp_fd is not None:
         args += ['--seccomp', str(seccomp_fd)]
     return args + ['--', '/usr/bin/python3', '-I', '/opt/starport/guest-entry.py']
 
 
 def serve(base=BASE, code=CODE):
+    # A shared lease prevents a new workspace from racing an idle runtime or
+    # package migration. The administrative parent retains it for the job.
+    runtime_lease = open(code / 'runtime.lock', 'a')
+    fcntl.flock(runtime_lease, fcntl.LOCK_SH | fcntl.LOCK_NB)
     first = sys.stdin.buffer.readline(96 * 1024 * 1024 + 1)
     if not first.endswith(b'\n') or len(first) > 96 * 1024 * 1024:
         raise ValueError('invalid_initial_frame')
     init = json.loads(first)
     workspace = prepare_workspace(base, init['workspace'])
     request = init['request']
-    lock = open(workspace / ('files.lock' if request.get('operation') == 'files' else 'run.lock'), 'a')
+    operation = request.get('operation')
+    lock = open(workspace / ('files.lock' if operation == 'files' else 'native.lock' if operation == 'native' else 'run.lock'), 'a')
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    if request.get('operation') not in ['exec', 'files']:
+    if operation not in ['exec', 'files', 'native', 'sdk']:
         raise ValueError('invalid_operation')
+    if operation == 'native' and request.get('wslg') is not True:
+        raise ValueError('wslg_authorization_required')
     if request['operation'] == 'exec':
         argv = request.get('argv')
         if not isinstance(argv, list) or not 1 <= len(argv) <= 64 or any(not isinstance(x, str) or '\0' in x or len(x) > 131072 for x in argv):
@@ -202,16 +231,22 @@ def serve(base=BASE, code=CODE):
             listener.listen(32)
             listeners.append(listener)
             threading.Thread(target=accept, args=(listener, channel), daemon=True).start()
-        policy_fd = seccomp_filter()
+        policy_fd = seccomp_filter(gui=operation == 'native')
         try:
-            child = subprocess.Popen(sandbox_args(workspace, runtime, code / 'etc', code / 'public', seccomp_fd=policy_fd),
+            # bwrap maps the sandbox UID to its caller's real UID. Drop the
+            # controller identity before exec, so UID 1000 also owns the private
+            # project on the distribution side and never maps to host root.
+            identity = {'user': UID, 'group': UID, 'extra_groups': ()} if os.geteuid() == 0 else {}
+            child = subprocess.Popen(sandbox_args(workspace, runtime, code / 'etc', code / 'public', seccomp_fd=policy_fd, gui=operation == 'native'),
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE, env={'PATH': '/usr/bin:/bin'},
-                                     pass_fds=(policy_fd,), start_new_session=True)
+                                     pass_fds=(policy_fd,), start_new_session=True, **identity)
         finally:
             os.close(policy_fd)
-        child.stdin.write(json.dumps(request).encode())
-        child.stdin.close()
+        child.stdin.write((json.dumps(request) + '\n').encode())
+        child.stdin.flush()
+        if operation != 'native':
+            child.stdin.close()
         def stream(pipe, kind):
             while True:
                 data = pipe.read1(8192)
@@ -233,6 +268,12 @@ def serve(base=BASE, code=CODE):
                     if len(line) > 32768 or not line.endswith(b'\n'):
                         raise ValueError('invalid_frame')
                     f = json.loads(line)
+                    if f.get('type') == 'native-action':
+                        if operation != 'native' or f.get('app') not in ['browser', 'desktop', 'terminal', 'login']:
+                            raise ValueError('invalid_native_action')
+                        child.stdin.write((json.dumps({'app': f['app']}) + '\n').encode())
+                        child.stdin.flush()
+                        continue
                     n = f.get('id')
                     if type(n) is not int or n < 1:
                         raise ValueError('invalid_frame')
@@ -257,6 +298,11 @@ def serve(base=BASE, code=CODE):
                 # this local process namespace. Remote jobs are not cancelled here.
                 for n in list(peers):
                     close(n)
+                if operation == 'native':
+                    with contextlib.suppress(OSError):
+                        child.stdin.close()
+                    with contextlib.suppress(subprocess.TimeoutExpired):
+                        child.wait(timeout=8)
                 with contextlib.suppress(ProcessLookupError):
                     os.killpg(child.pid, signal.SIGTERM)
         input_thread = threading.Thread(target=input_frames, daemon=True)

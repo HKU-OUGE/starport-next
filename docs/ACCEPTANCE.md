@@ -9,11 +9,11 @@
 | 配置导入 | 新目录、并发互斥、失败无部分状态、加密落盘、不继承信任 | 已实现／离线测试 |
 | Pi 迁移 | v1 加密包、真实 ID 形状、去除旧路径／令牌／进程、扩展禁用 | 已实现／离线测试 |
 | 节点状态 | 新鲜度、配置版本、各能力分别验证、已授权空闲停机恢复去重 | 纯判定已实现；后台适配待实现 |
-| 控制端 | Windows／Linux／macOS 安装、导入、升级、权限和回滚 | Ubuntu 本地链路已实测；Windows／macOS 待 CI／实机 |
+| 控制端 | Windows／Linux／macOS 安装、导入、升级、权限和回滚 | Ubuntu 本地链路和 Windows/WSL2 安装、空闲升级已实测；macOS 待实机 |
 | 网络 | IPv4／IPv6／DNS／UDP 直连拒绝、内网和元数据拒绝、唯一出口 | 本地 TCP、DNS/UDP、IPv6、宿主网关和元数据负例已实测 |
 | 故障关闭 | 代理退出、隧道断开、订阅失效、主备切换、上联变化 | 独立出口关闭后请求失败、直连仍拒绝；其他故障场景待测 |
 | 网络事务 | 过期计划、并发配置、应用中断、回滚失败保持关闭 | 待适配实现 |
-| 整体隔离 | 文件工具、Shell、插件、MCP、浏览器和子进程均无法读取宿主 | SDK Write/Edit/Bash、项目文件操作和非管理用户已测；插件／MCP／浏览器待接入 |
+| 整体隔离 | 文件工具、Shell、插件、MCP、浏览器和子进程均无法读取宿主 | SDK 工具、项目文件和普通／WSLg 文件网络负例已测；WSLg 明确共享显示和剪贴板，插件／MCP 待逐项验收 |
 | SSH/SFTP | Desktop 与独立 SSH/SFTP 客户端均只访问指定项目环境 | 固定主机密钥的本地 guest SSH 已测；Desktop/SFTP 客户端待测 |
 | 依赖 | 导入、模型读取、原生扩展、只读、额外依赖层、运行租约 | Node/SDK 安装与不可写权限已测；宿主共享依赖发布待实现 |
 | 任务 | CPU/GPU/内存、外部占用、并发、单任务取消、释放确认 | 待适配实现／实测 |
@@ -61,7 +61,17 @@ npm run check
 
 在 Linux 上用同一套 bubblewrap／seccomp／进程管道代码实际验证：控制端项目文件读写与摘要、目录穿越／软链接拒绝、台湾 locale、IPv4／IPv6／DNS／元数据／vsock 阻断、真实代理 HTTPS、暂停出口后的失败及恢复。证据见 [控制端 Linux 验收](verification/windows-control-linux.json)。控制台登录、终端、文件列表与桌面／手机布局通过浏览器检查。
 
-这不等于 Windows WSL2 实机通过。Windows 导入／冷启动、WSLg、完整官方客户端、真实 DSW 任务以及远程 Access 入口仍待验收；当前没有创建云资源、迁移运行中的服务或登录启动项。
+以上 Linux 记录本身不等于 Windows 实机通过。随后在 Windows 11 x64 的专用 WSL2 发行版完成了以下独立验证：
+
+- WSL 3.0.3.0、WSLg 1.0.79、Ubuntu 24.04，Windows Node 24.19.0／guest Node 22.23.1。
+- 专用发行版导入、所有权核对、空闲运行时升级及重新验收；普通项目进程以 UID/GID 1000 启动，实际产物所有者为 1000，附加组为空。修复了 root 控制器直接启动 bubblewrap 导致 `/workspace` 无权限的问题。
+- Windows 盘、interop、管理 HOME 与管理凭据环境不可见，项目文件往返、128 KiB 摘要／改名、目录穿越和软链接拒绝。仅停止并重启该发行版后，产物保持且重新通过网络验收；没有把这称作 Windows 整机冷启动。
+- 普通策略与 WSLg 策略都验证了无外网路由，IPv4／IPv6／DNS／元数据／vsock 阻断，以及受控代理关闭后失败、恢复后可用。GUI 策略同时验证可创建 Chromium 所需的嵌套用户命名空间，但挂载与 `setns` 被拒绝，Windows 文件仍不可见。
+- Claude Code 2.1.309、Agent SDK 0.3.316、Desktop 4.4212.0、Chrome 156.0.8078.79 已安装。用户完成 Linux 密钥环设置，Desktop 欢迎页、工作区内浏览器官方登录页已显示。真实浏览器测试确认出口暂停后 `ERR_TUNNEL_CONNECTION_FAILED`，恢复后可用。
+- 使用经授权的现有 API 配置，经 Windows 网关完成 `claude-opus-5-5` 的 Write／Read 文件任务，返回 `SDK_VERIFIED`，文件摘要核对成功，SDK 报告费用 0.0388192 美元。控制台另执行 Read 验证并显示 `UI_SDK_VERIFIED`。真实 API Key 未作为 WSL 配置或环境下发；未查询账单或促销余额实际扣减。
+- Windows `npm test`：58 通过、3 跳过（符号链接权限及两项 Linux 运行时测试）。同一源码复制到本机 WSL2 的临时测试目录后：61 项全部通过，包括普通与 GUI 策略的真实命名空间测试。`npm run check` 和 setup skill 格式验证通过。
+
+这些测试不包含官方账号授权后的 CLI／Desktop 工具调用、账号重启续接、WSLg 剪贴板所有格式、Windows 整机冷启动恢复、登录启动、真实 DSW 任务或 Access 公网入口。WSLg 按用户明确选择共享 Windows 显示和剪贴板，不声明身份隔离。摘要证据见 [Windows WSL2 验收](verification/windows-wsl2.json)，含实际身份、节点和令牌的收据只保存在本机私有目录。
 
 ## 隔离测试需要包含的负例
 

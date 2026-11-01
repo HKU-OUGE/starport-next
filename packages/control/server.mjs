@@ -34,7 +34,7 @@ export async function startHostControl(state,options={}){
     if(!proxy&&!options.testEgress)egress.pause();
     if(options.compute?.ssh)computeSsh=await startComputeSsh(options.compute.ssh);
     compute=await createCompute({state,connection:options.compute?{url:computeSsh?.url||options.compute.url,token:options.compute.token}:undefined});
-    runtime=createWslRuntime(options.wslState||path.join(state,'wsl'),{launch:options.testLaunch,
+    runtime=createWslRuntime(options.wslState||path.join(state,'wsl'),{launch:options.testLaunch,wslg:options.wslg===true,
       destinations:{proxy:egress.proxyPort,model:egress.apiPort,compute:compute.port},
       capabilities:workspace=>({modelCapability:egress.modelReady?egress.capability:undefined,computeCapability:compute.capability(workspace)})});
     const refresh=async()=>{if(refreshing)return;refreshing=true;try{health=await compute.health();refreshedAt=new Date().toISOString();}finally{refreshing=false;}};
@@ -63,7 +63,7 @@ export async function startHostControl(state,options={}){
         if(req.method==='GET'&&url.pathname==='/api/status')return json(res,200,{
           control:{platform:process.platform,kind:'native-host',remote:policy.mode,updatedAt:refreshedAt},
           egress:{enabled:egress.enabled,configured:proxyRunning||!!options.testEgress,directFallback:false},
-          runtime:runtime.status(),workspaces,compute:health,jobs:compute.jobs(),tunnel:tunnel?.status()||{phase:'not-configured'},csrf:access.csrf(identity)});
+          runtime:runtime.status(),model:{configured:egress.modelReady,model:options.model||null},workspaces,compute:health,jobs:compute.jobs(),tunnel:tunnel?.status()||{phase:'not-configured'},csrf:access.csrf(identity)});
         if(req.method==='POST'&&url.pathname.startsWith('/api/egress/')){
           if(verifying)throw error('workspace_verification_in_progress');
           if(url.pathname==='/api/egress/pause')egress.pause();
@@ -76,7 +76,7 @@ export async function startHostControl(state,options={}){
           const b=await bodyJson(req,4096);if(!workspaceId(b.id)||workspaces.includes(b.id))throw error('invalid_or_existing_workspace');
           workspaces.push(b.id);writePrivate(workspaceFile,workspaces);return json(res,201,{id:b.id});
         }
-        const m=/^\/api\/workspaces\/([a-z][a-z0-9-]{0,47})\/(verify|exec|files)$/.exec(url.pathname);
+        const m=/^\/api\/workspaces\/([a-z][a-z0-9-]{0,47})\/(verify|exec|files|native|sdk|clients)$/.exec(url.pathname);
         if(req.method==='POST'&&m&&workspaces.includes(m[1])){
           const [,_id,operation]=m,b=await bodyJson(req);
           if(verifying)throw error('workspace_verification_in_progress');
@@ -93,12 +93,25 @@ export async function startHostControl(state,options={}){
             egress.pause();try{const r=await execute();if(r.code!==0)throw error('workspace_probe_failed');closed=JSON.parse(r.stdout);}finally{if(proxyRunning||options.testEgress)egress.resume();}
             const booleans=Object.entries(checks).filter(([,v])=>typeof v==='boolean');
             const receipt={checkedAt:new Date().toISOString(),passed:checks.hostname==='starship'&&checks.user==='agent'&&checks.timezone==='Asia/Taipei'&&checks.language==='zh_TW.UTF-8'&&booleans.length>=11&&booleans.every(([,v])=>v)&&closed.controlledHttps===false&&closed.directTcpDenied===true,checks,proxyStopped:{requestDenied:!closed.controlledHttps,directStillDenied:closed.directTcpDenied}};
-            runtime.reports.set(_id,receipt);return json(res,200,receipt);
+            receipt.runtimeDigest=runtime.digest();runtime.reports.set(_id,receipt);return json(res,200,receipt);
             }finally{verifying=false;}
           }
-          if(operation==='exec'){
+          if(['exec','native','sdk','clients'].includes(operation)){
             const proof=runtime.reports.get(_id);
-            if(!proof?.passed||Date.now()-Date.parse(proof.checkedAt)>86400000)throw error('workspace_verification_required');
+            if(!proof?.passed||proof.runtimeDigest!==runtime.digest()||Date.now()-Date.parse(proof.checkedAt)>86400000)throw error('workspace_verification_required');
+            if(operation==='clients'){
+              const r=await runtime.execute(_id,{operation:'exec',argv:['/usr/bin/python3','-I','/opt/starport/client-status.py']},{timeout:45000});
+              if(r.code!==0)throw error('client_status_failed');return json(res,200,JSON.parse(r.stdout));
+            }
+            if(operation==='native'){
+              if(b.app==='stop'){await runtime.stopNative(_id);return json(res,200,{phase:'stopped'});}
+              return json(res,200,await runtime.nativeAction(_id,b.app));
+            }
+            if(operation==='sdk'){
+              if(!egress.modelReady)throw error('api_gateway_required');
+              if(typeof b.prompt!=='string'||!b.prompt.trim()||b.prompt.length>65536)throw error('invalid_prompt');
+              return json(res,200,await runtime.execute(_id,{operation:'sdk',request:{prompt:b.prompt,resume:b.resume,model:options.model||'claude-haiku-5-5'}},{timeout:300000}));
+            }
             if(typeof b.script!=='string'||b.script.length>131072)throw error('invalid_script');
             return json(res,200,await runtime.execute(_id,{operation:'exec',argv:['/bin/bash','--noprofile','--norc','-c',b.script]},{timeout:120000}));
           }

@@ -1,12 +1,16 @@
-const $=id=>document.getElementById(id);let status,csrf='',folder='',selected='',polling=false,connectionError=false;
+const $=id=>document.getElementById(id);let status,csrf='',folder='',selected='',polling=false,connectionError=false,sdkRunning=false;
 const errors={authentication_required:'请输入本机访问码。',workspace_verification_required:'请先完成工作区边界验证。',wsl_runtime_requires_windows:'当前主机不是 Windows；WSL2 实机验证待完成。',controlled_proxy_not_running:'受控代理未启动，请配置订阅和节点。',workspace_busy:'该项目正在执行操作，请稍后重试。',workspace_operations_active:'请等待当前工作区操作完成后再验证。',enable_controlled_egress_first:'请先配置并启用受控出口。'};
 function problem(e){$('error').textContent=errors[e.message]||e.message;}
-async function api(route,body){const r=await fetch(route,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'content-type':'application/json','x-csrf-token':csrf},body:body===undefined?undefined:JSON.stringify(body),cache:'no-store',signal:AbortSignal.timeout(body===undefined?10000:150000)});const v=await r.json();if(!r.ok)throw Error(v.error||'request_failed');return v;}
+async function api(route,body){const r=await fetch(route,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'content-type':'application/json','x-csrf-token':csrf},body:body===undefined?undefined:JSON.stringify(body),cache:'no-store',signal:AbortSignal.timeout(body===undefined?10000:route.endsWith('/sdk')?360000:150000)});const v=await r.json();if(!r.ok)throw Error(v.error||'request_failed');return v;}
 function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
 const action=(button,fn)=>button.addEventListener('click',async()=>{button.disabled=true;$('error').textContent='';try{await fn();}catch(e){problem(e);}finally{button.disabled=false;}});
 async function refresh(){if(polling)return;polling=true;try{status=await api('/api/status');if(connectionError){$('error').textContent='';connectionError=false;}csrf=status.csrf;$('login').hidden=true;$('console').hidden=false;$('connection').textContent='已连接';$('connection').className='pill good';$('platform').textContent={win32:'Windows',linux:'Linux',darwin:'macOS'}[status.control.platform]||status.control.platform;$('egress').textContent=status.egress.enabled?'已连接':'已关闭';$('toggle-egress').textContent=status.egress.enabled?'暂停出口':'恢复出口';$('compute').textContent=status.compute.ready?'可用':'未连接';$('capacity').textContent=status.compute.ready?`并发上限 ${status.compute.capacity.max_parallel_server??'—'}`:'等待配置计算接口';$('runtime').textContent=status.runtime.installed?'已安装':'待安装';$('updated').textContent='后台检查 '+(status.control.updatedAt?new Date(status.control.updatedAt).toLocaleTimeString():'—');
 if(status.workspaces.join()!==[...$('workspace').options].map(o=>o.value).join()){const old=selected;$('workspace').replaceChildren(...status.workspaces.map(v=>{const o=el('option',v);o.value=v;return o;}));$('workspace').value=status.workspaces.includes(old)?old:status.workspaces[0];selected=$('workspace').value;}
-const report=status.runtime.reports.find(r=>r.workspace===selected);$('verified').textContent=report?.passed?'边界验证通过':'未验证';$('verified').className='pill'+(report?.passed?' good':'');$('run').disabled=!report?.passed;
+const report=status.runtime.reports.find(r=>r.workspace===selected),busy=status.runtime.active.some(r=>r.workspace===selected&&['exec','sdk'].includes(r.operation));$('verified').textContent=report?.passed?'边界验证通过':'未验证';$('verified').className='pill'+(report?.passed?' good':'');$('run').disabled=!report?.passed||busy||sdkRunning;
+$('native-note').textContent=status.runtime.wslg?'WSLg 独立窗口 · 与 Windows 共享剪贴板。':'WSLg 未启用；请先完成客户端安装并配置显示共享。';
+for(const name of ['browser','desktop','terminal','login','stop'])$('native-'+name).disabled=!report?.passed||!status.runtime.wslg;
+$('clients-refresh').disabled=!report?.passed||busy||sdkRunning;$('sdk-run').disabled=sdkRunning||busy||!report?.passed||!status.model?.configured;
+$('sdk-model').textContent=status.model?.configured?'模型：'+(status.model.model||'默认模型')+' · SDK 预算阈值 0.25 美元，单次调用可能超出':'尚未配置 API Key；CLI 和 Desktop 的账号登录独立进行。';
 $('jobs').replaceChildren(...(status.jobs.length?status.jobs.map(j=>el('p',`${j.id.slice(0,8)} · ${j.workspace} · ${j.outcomeUnknown?'待核对提交结果':j.status||'已提交'}`)):[el('p','尚无任务')]));
 }catch(e){if(e.message==='authentication_required'){$('login').hidden=false;$('console').hidden=true;$('connection').textContent='待登录';}else{connectionError=true;$('connection').textContent='正在重连';$('connection').className='pill';$('error').textContent='控制端暂时不可达，正在重连。';}}finally{polling=false;}}
 async function files(q){return api(`/api/workspaces/${selected}/files`,q);}
@@ -23,4 +27,19 @@ action($('verify'),async()=>{$('verified').textContent='验证中…';const v=aw
 $('workspace').addEventListener('change',()=>{selected=$('workspace').value;folder='';$('files').replaceChildren();refresh();list().catch(problem);});
 $('execute').addEventListener('submit',async e=>{e.preventDefault();$('run').disabled=true;$('output').textContent='执行中…';try{const v=await api(`/api/workspaces/${selected}/exec`,{script:$('script').value});$('output').textContent=v.stdout+v.stderr+`\n退出码：${v.code}`;}catch(e){problem(e);}finally{await refresh();}});
 $('upload').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>64*1024*1024)throw Error('单文件上限为 64 MiB');const bytes=new Uint8Array(await f.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));await files({operation:'write',path:joined(f.name),data:btoa(binary),sha256:await digest(bytes)});await list();}catch(e){problem(e);}finally{e.target.value='';}});
+action($('clients-refresh'),async()=>{const v=await api(`/api/workspaces/${selected}/clients`,{});$('clients-output').textContent=`Node：${v.node||'未安装'}\nClaude Code：${v.claudeCode||'未安装'}\nAgent SDK：${v.agentSdk||'未安装'}\nClaude Desktop：${v.desktopInstalled?'已安装（请在应用内确认登录）':'未安装'}\n浏览器：${v.browser||'未安装'}\nClaude Code 账号：${v.account.loggedIn?'已登录':'待登录'}`;});
+for(const app of ['browser','desktop','terminal','login','stop'])action($('native-'+app),async()=>{await api(`/api/workspaces/${selected}/native`,{app});$('clients-output').textContent=app==='stop'?'工作区图形应用已关闭。':'已请求打开 WSLg 窗口；请在 Windows 桌面查看。';await refresh();});
+$('sdk-form').addEventListener('submit',async e=>{
+  e.preventDefault();sdkRunning=true;$('sdk-run').disabled=true;$('clients-refresh').disabled=true;$('run').disabled=true;$('error').textContent='';$('sdk-output').textContent='任务运行中…';
+  try{
+    const r=await api(`/api/workspaces/${selected}/sdk`,{prompt:$('sdk-prompt').value});
+    const events=r.stdout.trim().split('\n').filter(Boolean).map(line=>{try{return JSON.parse(line);}catch{return null;}}).filter(Boolean);
+    const blocks=events.filter(v=>v.type==='assistant').map(v=>(v.message?.content||[]).filter(p=>p.type==='text').map(p=>p.text).join('\n')).filter(Boolean);
+    const result=events.findLast(v=>v.type==='result');
+    if(result?.is_error)blocks.push(result.errors?.join('\n')||result.result||JSON.stringify(result));
+    else if(result?.result&&result.result!==blocks.at(-1))blocks.push(result.result);
+    $('sdk-output').textContent=blocks.join('\n\n')||r.stderr||`退出码：${r.code}`;
+  }catch(err){problem(err);$('sdk-output').textContent='任务请求未完成，请检查错误信息。';}
+  finally{sdkRunning=false;await refresh();}
+});
 await refresh();setInterval(refresh,5000);

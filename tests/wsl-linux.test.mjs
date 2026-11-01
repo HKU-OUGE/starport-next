@@ -31,6 +31,7 @@ print(json.dumps({'host':socket.gethostname(),'lang':os.environ['LANG'],'tz':os.
   const original=Buffer.from('臺北繁體中文\nproject-bytes\n'),sha256=crypto.createHash('sha256').update(original).digest('hex');
   const file=async q=>{const v=await r.execute('main',{operation:'files',request:q});return {code:v.code,...JSON.parse(v.stdout)};};
   assert.equal((await file({operation:'write',path:'check.txt',data:original.toString('base64'),sha256})).code,0);
+  assert.equal(fs.statSync(path.join(dir,'workspaces','main','project','check.txt')).uid,process.getuid()===0?1000:process.getuid());
   assert.equal((await file({operation:'read',path:'check.txt'})).sha256,sha256);
   assert.equal((await file({operation:'rename',path:'check.txt',destination:'renamed.txt'})).renamed,true);
   assert.equal((await file({operation:'read',path:'../../etc/passwd'})).error,'invalid_project_path');

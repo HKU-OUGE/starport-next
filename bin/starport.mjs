@@ -14,7 +14,8 @@ import { DEFAULT_HOSTS } from '../packages/runtime/egress.mjs';
 import { NATIVE_HOSTS,installNative,nativeStatus,nativeUi,launchNative } from '../packages/runtime/native.mjs';
 import { startHostControl } from '../packages/control/server.mjs';
 import { loadControlOptions } from '../packages/control/config.mjs';
-import { installWsl } from '../packages/wsl/runtime.mjs';
+import { installWsl,updateWslRuntime } from '../packages/wsl/runtime.mjs';
+import { installWslClients } from '../packages/wsl/clients.mjs';
 import { privateDir } from '../packages/runtime/common.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -47,6 +48,8 @@ const help = `Starport Next — 配置与部署规划工具
   starport control serve --state private/control --config private/host-control.json
   starport control init --out private/host-control.json
   starport wsl install --state private/wsl --rootfs ubuntu.tar.gz --sha256 SHA256
+  starport wsl clients-install --state private/wsl --config private/host-control.json
+  starport wsl update-runtime --state private/wsl
 
 加密操作默认隐藏输入口令；自动化可传 --password-file，口令不会进入命令参数。
 预设：desktop-dsw、single-machine、server-hosted。
@@ -123,7 +126,15 @@ async function main() {
     process.on('SIGINT',stop);process.on('SIGTERM',stop);return;
   }
   if(command==='wsl'){
-    if(args.shift()!=='install')fail('unknown_wsl_command');
+    const action=args.shift();
+    if(action==='clients-install'){
+      const a=argumentsFor(args,['--state','--config']);
+      return show(await installWslClients(required(a,'--state'),loadControlOptions(required(a,'--config')),{onProgress:show}));
+    }
+    if(action==='update-runtime'){
+      const a=argumentsFor(args,['--state']);return show(await updateWslRuntime(required(a,'--state')));
+    }
+    if(action!=='install')fail('unknown_wsl_command');
     const a=argumentsFor(args,['--state','--rootfs','--sha256']);
     return show(await installWsl(required(a,'--state'),{rootfs:required(a,'--rootfs'),sha256:required(a,'--sha256'),onProgress:show}));
   }
