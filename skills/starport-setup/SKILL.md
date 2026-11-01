@@ -69,11 +69,18 @@ Never reuse an old runtime's successful report to authorize a new version.
    The WSL SDK does not set a USD budget ceiling. Report actual model cost; do not
    restore an arbitrary monetary cap after the user has removed it. The current
    eight-turn and 300-second limits are separate from billing and remote compute.
-7. Before registering a usable deployment, ask whether it should start after the
-   current user logs in, unless the current session already contains that choice.
-   The current local adapter cannot register login startup; do not ask for a startup preference
-   as though registration had been implemented. Login startup and boot-before-login
-   are different capabilities.
+7. For a usable Windows deployment, follow [SERVICES.md](../../docs/SERVICES.md).
+   Ask whether it should start after the current user logs in, unless this session
+   already contains that choice. With authorization, run `register-startup.ps1`
+   with `-Action enable`, then `-Action start`, using this installation's actual
+   control state, host config and Node paths. Include `workerComputeFile` when an
+   independent worker should be supervised. Verify the owned shortcut, fresh
+   supervisor receipt, both process identities and local service health. Repeat
+   startup must not duplicate processes. An idle control recovery test must retain
+   the compute connection and must not resubmit jobs. Do not restart active work
+   for this test. This is current-user login startup, not an SCM service before
+   login; distinguish registration, manual launch, actual relogin and cold boot.
+   Never register a SYSTEM process against another user's WSL distribution.
 8. After a Windows installation finishes and the control service is healthy, open
    the local access-code window using [show-access-code.ps1](../../scripts/show-access-code.ps1)
    with `powershell -NoProfile -STA -ExecutionPolicy Bypass -File scripts/show-access-code.ps1
@@ -100,3 +107,17 @@ the model a management SSH command or cloud credential. Record unresolved submis
 before retrying and report cross-service scheduling and quota limits accurately.
 Keep configured ceilings separate from physical node capacity. `parallel: null`
 removes the fixed concurrent-job count, but resource admission remains enforced.
+
+WSL native startup merges the scoped compute MCP into project and Desktop config,
+and imports `AGENTS.md` from `CLAUDE.md`. Validate both inline-script submission
+and artifact retrieval, preserving existing instructions and unrelated MCPs.
+Distinguish CLI API acceptance from subscription login and Desktop chat acceptance.
+If Chrome remains blank while Unlock Keyring is open, have the user unlock it and
+recheck a controlled HTTPS page before changing the network or password store.
+
+For panel configuration transfers, use the existing portable bundle format and
+preview before importing to a new profile. Include `workerComputeFile` in the host
+configuration when its independent worker should be backed up. Never migrate live
+trust, account cookies, access codes or verified state; report that import stages
+configuration and does not activate it. Verify encrypted round trips with synthetic
+fixtures and verify the template workflow in the real panel without displaying secrets.

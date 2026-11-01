@@ -6,13 +6,18 @@ description: Inspect and remove a Starport Next profile or a future receipt-owne
 # Starport Next uninstall
 
 Read [ROADMAP.md](../../docs/ROADMAP.md) and the installation receipts. The local adapter
-runs a workspace supervisor but registers no login startup and creates no cloud resources.
+runs a workspace supervisor and creates no cloud resources. Windows may additionally
+have a current-user login entry, described in [SERVICES.md](../../docs/SERVICES.md).
 Use `local status` and `local stop` for the exact state directory, export needed project
 files, and confirm the supervisor and VM have stopped before removing that directory.
 Never delete the base image of a live workspace. Removing its checkout must not be used
 as a reason to stop an older Starport, Mac network, DSW instance, or Cloudflare tunnel.
 
-For the Windows control route, close only its owned foreground control process,
+For the Windows control route, first disable this deployment's login entry using
+`register-startup.ps1 -Action disable` with its actual control state and config.
+Verify the shortcut was removed, then stop only the supervisor identified by the
+manifest, fresh receipt, command line and process creation time. Otherwise it may
+restart services being removed. Close only its owned control and compute processes,
 export required project data, and inspect `wsl.json`. `wsl --unregister` permanently
 deletes an entire distribution: require explicit approval for that exact recorded
 distribution and its data. Never use `wsl --shutdown` or infer ownership from a

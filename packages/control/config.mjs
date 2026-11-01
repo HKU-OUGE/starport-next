@@ -13,7 +13,7 @@ export function loadControlOptions(file){
     return fs.readFileSync(p,'utf8').trim();
   };
   if(!c||c.format!=='starport-host-control'||c.version!==1)throw error('invalid_control_configuration');
-  const o={port:c.port??18884,wslState:resolve(c.wslState||'wsl')};
+  const o={port:c.port??18884,wslState:resolve(c.wslState||'wsl'),configurationFile:path.resolve(file)};
   if(c.wslg!==undefined&&typeof c.wslg!=='boolean')throw error('invalid_wslg_configuration');
   o.wslg=c.wslg===true;
   if(!Number.isInteger(o.port)||o.port<1024||o.port>65535)throw error('invalid_control_port');

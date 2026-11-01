@@ -19,6 +19,11 @@
 
 Windows 优先采用 **主系统管理网络与服务器，WSL2 执行项目程序**。主系统可以读写项目文件，工作区不挂载 Windows 文件。已提供 Claude Code、Agent SDK、Linux Desktop 与浏览器安装入口；独立 WSLg 窗口需显式开启，并与 Windows 共享显示和剪贴板。安装与访问码窗口见 [Windows 控制端](docs/WINDOWS-HOST.md)，兼容性和待验证项见 [WSL2 评估](docs/WSL2-ASSESSMENT.md)。
 
+服务器任务面板提供资源概况、筛选、日志、产物下载和取消；服务页可注册 Windows
+登录启动。Claude Code／Desktop 通过项目计算 MCP 接入远端任务，项目内自动生成
+`AGENTS.md` 和 `CLAUDE.md`。配置页可加密导出、预览并导入到新配置；不自动切换当前安装。
+官方账号登录及 Desktop 真实对话验收仍独立记录。
+
 ## 先试配置
 
 需要 Node.js 22 或更高版本。
@@ -65,6 +70,7 @@ node bin/starport.mjs local chat --state private/local-workspace --prompt-file p
 | [复用计划](docs/REUSE.md) | 从既有网络、会话与算力实现提取什么 |
 | [验收矩阵](docs/ACCEPTANCE.md) | 哪些已测，哪些必须在目标机器验收 |
 | [独立计算资源](docs/COMPUTE.md) | SSH／DSW worker、CPU／GPU 任务与 Claude 调用 |
+| [后台服务](docs/SERVICES.md) | Windows 登录启动、进程恢复与服务管理 |
 | [Agent 入口](AGENTS.md) | 安装、开发和接手指引 |
 
 ```text

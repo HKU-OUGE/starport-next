@@ -8,9 +8,11 @@ import { privateDir,writePrivate,read,hash,cleanEnv,run,error } from '../runtime
 import { pipeBridge } from '../control/pipe-bridge.mjs';
 
 const source = fileURLToPath(new URL('.', import.meta.url));
+const bundleNames=['runner.py','guest-entry.py','native-session.py','sdk-agent.mjs','client-status.py','compute-mcp.py','configure-compute.py','COMPUTE-AGENT.md','files.py','compute-client.py'];
 export function runtimeBundle(){
-  const files={};for(const name of ['runner.py','guest-entry.py','native-session.py','sdk-agent.mjs','client-status.py'])files[name]=fs.readFileSync(path.join(source,name)).toString('base64');
+  const files={};for(const name of bundleNames.filter(n=>!['files.py','compute-client.py'].includes(n)))files[name]=fs.readFileSync(path.join(source,name)).toString('base64');
   files['files.py']=fs.readFileSync(new URL('../runtime/guest/files.py',import.meta.url)).toString('base64');
+  files['compute-client.py']=fs.readFileSync(new URL('../../scripts/compute-client.py',import.meta.url)).toString('base64');
   const digests=Object.fromEntries(Object.entries(files).map(([n,b])=>[n,crypto.createHash('sha256').update(Buffer.from(b,'base64')).digest('hex')]));
   return {files,digests,digest:crypto.createHash('sha256').update(JSON.stringify(digests)).digest('hex')};
 }
@@ -83,14 +85,14 @@ for workspace in base.iterdir() if base.exists() else []:
   locks.append(lock)
 digests={}
 for name in q['oldFiles']:
- assert name in ['runner.py','guest-entry.py','files.py','native-session.py','sdk-agent.mjs','client-status.py']
+ assert name in ${JSON.stringify(bundleNames)}
  p=root/name if name=='runner.py' else root/'public'/name
  assert not p.is_symlink() and p.stat().st_uid==0 and p.stat().st_mode&0o022==0
  digests[name]=hashlib.sha256(p.read_bytes()).hexdigest()
 assert hashlib.sha256(json.dumps(digests,separators=(',',':')).encode()).hexdigest()==q['oldDigest']
 staged=[]
 for name,value in q['files'].items():
- assert name in ['runner.py','guest-entry.py','files.py','native-session.py','sdk-agent.mjs','client-status.py']
+ assert name in ${JSON.stringify(bundleNames)}
  p=root/name if name=='runner.py' else root/'public'/name
  assert not p.is_symlink()
  data=base64.b64decode(value,validate=True)

@@ -1,0 +1,62 @@
+{
+  "checkedOn": "2026-11-01",
+  "controlPlatform": "windows-x64",
+  "workspace": "owned-wsl2",
+  "computeMcp": {
+    "toolCount": 8,
+    "projectGuidanceMerged": true,
+    "desktopConfigurationMerged": true,
+    "desktopCapabilityFileFallbackTested": true,
+    "realSingleGpuTaskPassed": true,
+    "logsAndArtifactHashVerified": true,
+    "resourcesReleased": true
+  },
+  "claudeCode": {
+    "mode": "authorized-api",
+    "model": "claude-opus-5-5",
+    "mcpConnected": true,
+    "realRemoteCpuJobPassed": true,
+    "artifactRead": true,
+    "result": "CLAUDE_CODE_COMPUTE_VERIFIED",
+    "reportedCostUsd": 0.0575774,
+    "usdBudgetCap": null,
+    "subscriptionLoginVerified": false
+  },
+  "desktop": { "configured": true, "authenticatedChatToolCallVerified": false },
+  "browser": { "userUnlockedKeyring": true, "exampleDomainRendered": true, "officialLoginPageRendered": true },
+  "services": {
+    "kind": "current-user-login",
+    "ownedStartupEntryRegistered": true,
+    "duplicateStartPreservesSingleSupervisor": true,
+    "controlCrashRecovered": true,
+    "computeProcessPreserved": true,
+    "boundaryReverified": true,
+    "actualReloginVerified": false,
+    "coldBootVerified": false
+  },
+  "managementApi": {
+    "taskListDetailAndLogs": true,
+    "legacyArtifactDownloadSha256": true,
+    "cancellationAndResourceRelease": true,
+    "templateExportAndAdditiveImport": true,
+    "encryptedExportAndPreview": true,
+    "privateReferenceCount": 4,
+    "importDoesNotActivate": true
+  },
+  "renderedPanel": {
+    "templateDownloadVerified": true,
+    "importFileSelectionVerified": false,
+    "newTaskAndServiceLayoutVerified": false,
+    "mobileLayoutVerified": false,
+    "blocker": "computer_use_stopped_when_current_browser_url_could_not_be_confirmed"
+  },
+  "sourceTests": {
+    "windows": { "passed": 74, "skipped": 3, "failed": 0 },
+    "wsl2": { "passed": 76, "skipped": 1, "failed": 0 },
+    "python": { "passed": 18, "failed": 0 },
+    "sourceAuditPassed": true,
+    "powerShellSyntaxPassed": true,
+    "setupAndUninstallSkillsPassed": true
+  },
+  "scope": "sanitized-summary-not-a-portable-runtime-authorization"
+}

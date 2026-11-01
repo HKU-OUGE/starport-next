@@ -20,6 +20,8 @@ Windows 主系统运行 Starport，管理网络出口、服务器连接、文件
 
 ## 安装
 
+本机面板现提供[配置导入／导出](CONFIGURATION.md#控制面板入口)。导入保存为新配置，不热切换当前安装。
+
 在 Windows PowerShell 中进入仓库：
 
 ```powershell
@@ -42,7 +44,8 @@ powershell -NoProfile -STA -ExecutionPolicy Bypass -File scripts/show-access-cod
 
 使用自定义状态目录时，将 `-State` 改为该部署的实际控制端目录。此窗口不代表 Claude Code、Agent SDK、Desktop 或浏览器已经安装或登录。
 
-当前启动方式为前台进程，关闭网页不会停止服务。没有自动注册开机或登录启动项。
+关闭网页不会停止服务。需要登录后后台运行时，按[服务注册](SERVICES.md)启用当前用户
+Startup 入口与守护程序；控制面板提供同一注册入口。它不在 Windows 登录前运行。
 
 ## 复用导入配置
 
@@ -218,6 +221,14 @@ WSL2 本身不是抵御 Windows 管理员或发行版 root 的安全边界。本
 
 当前 Linux 实测：项目文件往返、摘要、路径／软链接拒绝、繁体台湾 locale、无直连路由、IPv4／IPv6／DNS／元数据／vsock 阻断、真实代理 HTTPS、暂停后断网、恢复重连。计算项目授权与 Access 签名验证通过接口测试。桌面与手机尺寸的面板已检查。
 
-2026-11-01 已在 Windows 实机完成专用 WSL2 导入、发行版停止再启动、边界和文件往返，以及真实 SDK Write／Read 任务。客户端软件及 WSLg 启动已单独检查；密钥环、账号授权、Desktop 的实际工具调用及登录持久性不能由 SDK 通过来替代。**Windows 整机冷启动恢复、登录启动、远端 DSW 小任务与真实 Access 外网入口尚未验收。** 最新细项见[验收矩阵](ACCEPTANCE.md)。
+2026-11-01 已在 Windows 实机完成专用 WSL2 导入、发行版重启、边界和文件往返、真实 SDK
+与 Claude Code API 工具调用，以及独立 DSW 的 CPU／GPU 任务。项目与 Desktop 已合并计算
+MCP，工作区包含 `AGENTS.md` 和 `CLAUDE.md`。Desktop 真实账号对话和登录持久性仍待用户
+完成官方登录。登录启动注册和进程恢复单独记录，不能替代实际注销重登、整机冷启动或
+Access 公网验收。最新细项见[验收矩阵](ACCEPTANCE.md)。
+
+如果 Chrome 空白或一直加载，同时存在 Unlock Keyring 窗口，先由用户在该窗口解锁，
+再检查受控 HTTPS 页面。本机解锁后已经显示 Example Domain 和 Claude 官方登录页；
+不要为此关闭浏览器沙箱、改为明文凭据存储或放开直接外网。
 
 官方依据：[WSL 安全模型](https://github.com/microsoft/WSL/blob/master/doc/docs/technical-documentation/security.md)、[WSL 配置](https://learn.microsoft.com/en-us/windows/wsl/wsl-config)、[WSLg](https://learn.microsoft.com/en-us/windows/wsl/tutorials/gui-apps)、[Access JWT](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/authorization-cookie/validating-json/)、[Tunnel Token 文件](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/run-parameters/)。

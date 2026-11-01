@@ -10,6 +10,7 @@ export function projectPath(p){return typeof p==='string'&&p.length<=512&&!/[\\\
 const safeCode=v=>typeof v==='string'&&/^[a-z][a-z0-9_]{0,79}$/.test(v)?v:'compute_operation_failed';
 const publicFields=(v,names)=>Object.fromEntries(names.filter(n=>v?.[n]!==undefined).map(n=>[n,v[n]]));
 const statusFields=['status','created_at','started_at','finished_at','exit_code','failure_phase','last_control_heartbeat_at','resources_released','cancel'];
+const configFields=['entry','args','gpus','cpus','memory_gib','timeout','language','environment','backend'];
 export function publicJob(value){
   const out=publicFields(value,statusFields);
   if(jobId(value?.id))out.id=value.id;
@@ -64,15 +65,16 @@ export async function createCompute({state,connection,fetcher=fetch}){
         if(d.entry&&!projectPath(d.entry))throw error('invalid_entry');
         if(d.args&&(!Array.isArray(d.args)||d.args.some(a=>typeof a!=='string'||a.includes('\0'))))throw error('invalid_arguments');
         const requestId=crypto.randomBytes(16).toString('hex');
-        registry[requestId]={workspace:scope,outcomeUnknown:true,submittedAt:new Date().toISOString()};writePrivate(file,registry);
+        registry[requestId]={workspace:scope,outcomeUnknown:true,submittedAt:new Date().toISOString(),config:publicFields(d,configFields)};writePrivate(file,registry);
         const r=await upstream('POST','/jobs',d),v=await r.json();
         if(!r.ok){if(!String(v.error).includes('outcome_unknown'))delete registry[requestId];writePrivate(file,registry);return jsonResponse(res,r.status,{error:safeCode(v.error)});}
         if(!jobId(v.id))throw error('compute_invalid_job_response');
-        registry[v.id]={workspace:scope,cached:publicJob(v)};delete registry[requestId];writePrivate(file,registry);
+        registry[v.id]={workspace:scope,cached:publicJob(v),config:publicFields(d,configFields),checkedAt:new Date().toISOString()};delete registry[requestId];writePrivate(file,registry);
         return jsonResponse(res,201,publicJob(v));
       }
       if(parts[0]!=='jobs'||!jobId(parts[1])||registry[parts[1]]?.workspace!==scope)throw error('job_outside_project');
       const id=parts[1];
+      if(registry[id].outcomeUnknown)throw error('compute_outcome_unknown_check_before_retry');
       if(req.method==='POST'&&parts.length===3&&parts[2]==='cancel'){
         const r=await upstream('POST',`/jobs/${id}/cancel`,{}),v=await r.json();
         return jsonResponse(res,r.status,r.ok?publicJob(v):{error:safeCode(v.error)});
@@ -82,8 +84,9 @@ export async function createCompute({state,connection,fetcher=fetch}){
         if([...url.searchParams.keys()].some(k=>!['cursor','after','limit'].includes(k)))throw error('invalid_query');
         const r=await upstream('GET',url.pathname+url.search),v=await r.json();
         if(!r.ok)return jsonResponse(res,r.status,{error:safeCode(v.error)});
-        const value=parts.length===2?publicJob(v):parts[2]==='logs'?publicFields(v,['text','cursor','next_cursor','truncated','done','bytes']):publicFields(v,['entry','args','gpus','cpus','memory_gib','timeout','environment','backend']);
-        if(parts.length===2){registry[id].cached=value;writePrivate(file,registry);}
+        const value=parts.length===2?publicJob(v):parts[2]==='logs'?publicFields(v,['text','cursor','next_cursor','truncated','done','bytes']):publicFields(v,configFields);
+        if(parts.length===2){registry[id].cached=value;registry[id].checkedAt=new Date().toISOString();writePrivate(file,registry);}
+        if(parts[2]==='config'){registry[id].config=value;writePrivate(file,registry);}
         return jsonResponse(res,200,value);
       }
       if(parts[2]==='artifact'&&projectPath(decodeURIComponent(parts.slice(3).join('/')))){
@@ -96,6 +99,6 @@ export async function createCompute({state,connection,fetcher=fetch}){
   });
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
   return {port:server.address().port,health,capability(workspace){if(!tokens.has(workspace))tokens.set(workspace,crypto.randomBytes(32).toString('hex'));return tokens.get(workspace);},
-    jobs:()=>Object.entries(registry).map(([id,v])=>({id,workspace:v.workspace,...publicJob(v.cached||{}),outcomeUnknown:!!v.outcomeUnknown})),
+    jobs:()=>Object.entries(registry).map(([id,v])=>({id,workspace:v.workspace,...publicJob(v.cached||{}),outcomeUnknown:!!v.outcomeUnknown,submittedAt:v.submittedAt,checkedAt:v.checkedAt,config:v.config})),
     close(){tokens.clear();server.closeAllConnections();server.close();}};
 }

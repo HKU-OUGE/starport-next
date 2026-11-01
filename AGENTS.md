@@ -13,6 +13,7 @@ Windows/WSL2 control plane with optional WSLg clients. Consult
 - Local runtime setup and testing: [LOCAL-RUNTIME.md](docs/LOCAL-RUNTIME.md).
 - Windows control plane and WSL2 projects: [WINDOWS-HOST.md](docs/WINDOWS-HOST.md).
 - Independent remote compute and Claude task usage: [COMPUTE.md](docs/COMPUTE.md).
+- Windows login startup and owned service supervision: [SERVICES.md](docs/SERVICES.md).
 
 Keep the operator control plane outside the whole-agent workspace. A native
 Desktop adapter must connect to a scoped SSH/SFTP endpoint inside that boundary.
@@ -33,6 +34,8 @@ belong in private profiles. Do not copy a live tools directory into this reposit
 Imported trust is always unverified; extensions remain staged and disabled.
 
 The interface and repository documentation default to Simplified Chinese.
+Keep the management panel concise: use status, resource values and actions;
+put detailed operational explanations in help or documentation.
 Chat input conversion to Traditional Chinese and display conversion to Simplified
 Chinese must preserve code, paths, attachments and original transcript bytes.
 Do not add semantic message filtering or an extra send-preview workflow.

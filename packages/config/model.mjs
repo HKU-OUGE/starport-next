@@ -43,7 +43,7 @@ export function defaultConfig(topology = 'desktop-dsw') {
 }
 
 export function validateConfig(input) {
-  object(input, ['format','version','topology','ui','paths','engine','network','nodes','dependencies','access','execution','lifecycle','extensions']);
+  object(input, ['format','version','topology','ui','paths','engine','network','nodes','dependencies','access','execution','lifecycle','extensions','workspace','computePolicy']);
   if (input.format !== 'starport-config' || input.version !== 1) fail('unsupported_configuration');
   if (!['desktop-dsw','single-machine','server-hosted'].includes(input.topology)) fail('invalid_topology');
   object(input.ui, ['language','advancedCollapsed']);
@@ -94,6 +94,14 @@ export function validateConfig(input) {
   if (!['ask','never'].includes(input.lifecycle.resumeIdleStopped) || !['ask','disabled'].includes(input.lifecycle.autoStart)) fail('invalid_lifecycle');
   object(input.extensions, ['stagedRef','enableAfterReview']);
   if (!(input.extensions.stagedRef === null || reference(input.extensions.stagedRef)) || input.extensions.enableAfterReview !== false) fail('invalid_extensions');
+  if(input.workspace!==undefined){
+    object(input.workspace,['kind','wslg']);
+    if(input.workspace.kind!=='wsl2'||typeof input.workspace.wslg!=='boolean')fail('invalid_workspace_preferences');
+  }
+  if(input.computePolicy!==undefined){
+    const p=input.computePolicy;object(p,['cpus','memoryGiB','gpus','timeout','parallel']);
+    if(!integer(p.cpus,1,512)||!integer(p.memoryGiB,2,4096)||!integer(p.gpus,0,64)||!integer(p.timeout,1,86400)||!(p.parallel===null||integer(p.parallel,1,1024)))fail('invalid_compute_policy');
+  }
   return clone(input);
 }
 

@@ -13,6 +13,9 @@ import { createAccess } from './access.mjs';
 import { startTunnel } from './tunnel.mjs';
 import { startComputeSsh } from './ssh-tunnel.mjs';
 import { openWorkspaceFolder } from './explorer.mjs';
+import { createConfigurationTransfer } from './config-transfer.mjs';
+import { createJobManagement } from './job-management.mjs';
+import { createServices } from './services.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
 const workspaceId=v=>typeof v==='string'&&/^[a-z][a-z0-9-]{0,47}$/.test(v);
@@ -27,6 +30,8 @@ export async function startHostControl(state,options={}){
   const keyFile=path.join(state,'panel-key.json');
   if(!fs.existsSync(keyFile))writePrivate(keyFile,{key:crypto.randomBytes(32).toString('hex')});
   const key=read(keyFile).key;
+  const configuration=createConfigurationTransfer(state,options.configurationFile);
+  const services=createServices(state,options.configurationFile,options.testServices);
   let proxyRunning=false,health={ready:false,error:'checking'},refreshedAt=null,refreshing=false,verifying=false;
   try{
     if(options.proxyCandidates){proxy=await managedProxy(state,options.proxyCandidates,{binary:options.proxyBinary,onExit:()=>{proxyRunning=false;egress?.pause();}});proxyRunning=true;}
@@ -35,6 +40,7 @@ export async function startHostControl(state,options={}){
     if(!proxy&&!options.testEgress)egress.pause();
     if(options.compute?.ssh)computeSsh=await startComputeSsh(options.compute.ssh);
     compute=await createCompute({state,connection:options.compute?{url:computeSsh?.url||options.compute.url,token:options.compute.token}:undefined});
+    const jobs=createJobManagement(compute);
     runtime=createWslRuntime(options.wslState||path.join(state,'wsl'),{launch:options.testLaunch,wslg:options.wslg===true,
       destinations:{proxy:egress.proxyPort,model:egress.apiPort,compute:compute.port},
       capabilities:workspace=>({modelCapability:egress.modelReady?egress.capability:undefined,computeCapability:compute.capability(workspace)})});
@@ -47,7 +53,7 @@ export async function startHostControl(state,options={}){
       res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');
       try{
         const policy=access.policy(req),url=new URL(req.url,'http://control.invalid');
-        if(req.method==='GET'&&['/','/app.js','/style.css'].includes(url.pathname)){
+        if(req.method==='GET'&&['/','/app.js','/operations.js','/style.css'].includes(url.pathname)){
           if(policy.mode==='cloudflare')await access.authenticate(req,policy);
           const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
           res.writeHead(200,{'content-type':name.endsWith('.js')?'text/javascript; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/html; charset=utf-8','cache-control':'no-store'});
@@ -61,6 +67,42 @@ export async function startHostControl(state,options={}){
         }
         const identity=await access.authenticate(req,policy);
         if(req.method!=='GET')access.check(req,policy,identity);
+        if(url.pathname==='/api/services'||url.pathname.startsWith('/api/services/')){
+          if(policy.mode!=='local')throw error('local_service_action_required');
+          if(req.method==='GET'&&url.pathname==='/api/services')return json(res,200,await services.status());
+          const action=/^\/api\/services\/(enable|disable|start)$/.exec(url.pathname)?.[1];
+          if(req.method==='POST'&&action){await bodyJson(req,1024);return json(res,200,await services.action(action));}
+          throw error('unknown_route');
+        }
+        if(url.pathname==='/api/jobs'&&req.method==='GET')return json(res,200,{jobs:compute.jobs()});
+        if(url.pathname==='/api/jobs/refresh'&&req.method==='POST'){await bodyJson(req,1024);return json(res,200,await jobs.refresh());}
+        const task=/^\/api\/jobs\/([a-f0-9]{32})(?:\/(logs|cancel|artifact))?$/.exec(url.pathname);
+        if(task){
+          const [,id,operation]=task;
+          if(req.method==='GET'&&!operation)return json(res,200,await jobs.detail(id));
+          if(req.method==='GET'&&operation==='logs')return json(res,200,await jobs.logs(id,Number(url.searchParams.get('cursor')||0)));
+          if(req.method==='POST'&&operation==='cancel'){await bodyJson(req,1024);return json(res,200,await jobs.cancel(id));}
+          if(req.method==='GET'&&operation==='artifact'){
+            const {response,artifact}=await jobs.artifact(id,url.searchParams.get('path'));
+            // Worker transfers already verify each chunk. Older manifests have
+            // size only; hash the bounded complete transfer before serving it.
+            const chunks=[];let bytes=0;const hash=crypto.createHash('sha256');
+            for await(const chunk of response.body){bytes+=chunk.length;if(bytes>artifact.bytes||bytes>64*1024*1024)throw error('artifact_integrity_mismatch');hash.update(chunk);chunks.push(chunk);}
+            const sha256=hash.digest('hex');
+            if(bytes!==artifact.bytes||artifact.sha256&&sha256!==artifact.sha256)throw error('artifact_integrity_mismatch');
+            res.writeHead(200,{'content-type':'application/octet-stream','content-disposition':"attachment; filename*=UTF-8''"+encodeURIComponent(artifact.path.split('/').at(-1)),
+              'content-length':bytes,'x-content-sha256':sha256,'cache-control':'no-store'});
+            res.end(Buffer.concat(chunks,bytes));return;
+          }
+          throw error('unknown_route');
+        }
+        if(url.pathname==='/api/configuration'||url.pathname.startsWith('/api/configuration/')){
+          if(policy.mode!=='local')throw error('local_configuration_action_required');
+          if(req.method==='GET'&&url.pathname==='/api/configuration')return json(res,200,await configuration.list());
+          const action=/^\/api\/configuration\/(preview|import|export)$/.exec(url.pathname)?.[1];
+          if(req.method==='POST'&&action)return json(res,200,await configuration.handle(action,await bodyJson(req,32*1024*1024)));
+          throw error('unknown_route');
+        }
         if(req.method==='GET'&&url.pathname==='/api/status')return json(res,200,{
           control:{platform:process.platform,kind:'native-host',remote:policy.mode,updatedAt:refreshedAt},
           egress:{enabled:egress.enabled,configured:proxyRunning||!!options.testEgress,directFallback:false},
@@ -98,6 +140,9 @@ export async function startHostControl(state,options={}){
             }finally{verifying=false;}
           }
           if(['exec','native','sdk','clients','open-folder'].includes(operation)){
+            // Stopping an owned GUI session must remain possible during an idle
+            // runtime upgrade, when its previous verification is already stale.
+            if(operation==='native'&&b.app==='stop'){await runtime.stopNative(_id);return json(res,200,{phase:'stopped'});}
             const proof=runtime.reports.get(_id);
             if(!proof?.passed||proof.runtimeDigest!==runtime.digest()||Date.now()-Date.parse(proof.checkedAt)>86400000)throw error('workspace_verification_required');
             if(operation==='open-folder'){
@@ -109,7 +154,6 @@ export async function startHostControl(state,options={}){
               if(r.code!==0)throw error('client_status_failed');return json(res,200,JSON.parse(r.stdout));
             }
             if(operation==='native'){
-              if(b.app==='stop'){await runtime.stopNative(_id);return json(res,200,{phase:'stopped'});}
               return json(res,200,await runtime.nativeAction(_id,b.app));
             }
             if(operation==='sdk'){

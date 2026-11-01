@@ -20,6 +20,10 @@ os.environ['GSK_RENDERER'] = 'cairo'
 os.environ['LIBGL_ALWAYS_SOFTWARE'] = '1'
 for directory in ['.config', '.local/share/applications', '.local/state/starport', '.claude-account']:
     (pathlib.Path('/home/agent') / directory).mkdir(parents=True, exist_ok=True)
+# Refresh the project capability at each native session. Desktop may launch MCP
+# with a restricted environment; no API key or management secret is persisted.
+subprocess.run(['/usr/bin/python3', '-I', '/opt/starport/configure-compute.py'],
+               check=True, stdout=subprocess.DEVNULL)
 # A private session bus, never the distribution or Windows user's bus.
 bus = subprocess.run(['/usr/bin/dbus-daemon','--session','--fork','--print-address=1','--print-pid=1'], capture_output=True, text=True, check=True)
 os.environ['DBUS_SESSION_BUS_ADDRESS'] = bus.stdout.splitlines()[0]

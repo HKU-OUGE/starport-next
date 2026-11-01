@@ -111,6 +111,8 @@ test('control rejects stale runtime verification before SDK or native launch',as
   }
   s.runtime.reports.set('main',{passed:true,checkedAt:new Date(Date.now()-86400001).toISOString(),runtimeDigest:s.runtime.digest()});
   assert.equal(s.runtime.status().reports[0].passed,false);
+  const stopped=await fetch(s.url+'api/workspaces/main/native',{method:'POST',headers,body:JSON.stringify({app:'stop'})});
+  assert.equal(stopped.status,200);assert.equal((await stopped.json()).phase,'stopped');
 });
 test('tunnel needs Access and reads its token from a private file, not argv or workspace environment',t=>{
   const d=temp(t),tokenFile=path.join(d,'tunnel-token');fs.writeFileSync(tokenFile,'example-tunnel-token',{mode:0o600});

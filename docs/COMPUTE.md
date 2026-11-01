@@ -56,10 +56,27 @@ node scripts/start-worker-compute.mjs --config private/worker-compute.json
 
 ## Claude 使用方式
 
-将 [compute-client.py](../scripts/compute-client.py) 通过项目文件 API 放到
-`/workspace/starport_compute.py`，并在项目 `CLAUDE.md` 中写明以下用法。SDK 使用明确
-提示读取说明，再通过现有 Bash 工具调用；当前不是自动注册的 MCP。Desktop 普通聊天
-不会自动获得计算工具。
+WSL2 原生客户端启动时自动运行 `configure-compute.py`，在项目中合并 `.mcp.json`、
+`AGENTS.md`、`CLAUDE.md` 与 `STARPORT_COMPUTE.md`，并合并项目 HOME 内的
+`~/.config/Claude/claude_desktop_config.json`。已有其他 MCP 与用户说明保留；同名工具配置
+冲突会停止并要求核对。`CLAUDE.md` 通过 `@AGENTS.md` 加载统一说明，而非拼写为 `agnet.md`。
+
+Claude Code 和 Desktop Code 页使用 `/workspace` 项目。Desktop Chat 使用本地 stdio MCP，
+不依赖它自动读取项目 Markdown。八个工具为 `compute_guide`、`compute_health`、
+`compute_jobs`、`compute_submit`、`compute_status`、`compute_logs`、`compute_cancel`、
+`compute_download`。工具的初始化说明也包含同一份使用指引。支持直接传入 UTF-8 脚本内容，
+因此 Desktop Chat 不需要另一个本地 Shell 工具来创建任务文件。
+
+计算令牌在每个原生会话启动时刷新，保存在项目 HOME 的私有会话文件中，供不继承完整环境
+的 Desktop MCP 子进程读取；配置文件不包含令牌。真实模型 Key、管理 SSH 和云凭据不进入
+这个文件。MCP 进程、Claude 及子进程均留在原有项目边界内。
+
+首次交互式 Claude Code 可能显示 MCP 待批准；在 `/mcp` 核对 `starport-compute` 后启用。
+账号登录、MCP 握手和真实模型工具任务分别验收。API 模式的 CLI 成功不代表订阅账号已登录，
+协议测试成功也不代表 Desktop 已完成登录后的聊天调用。
+
+SDK／Bash 仍可使用 [compute-client.py](../scripts/compute-client.py)。新 WSL 运行时已把它
+部署在只读的 `/opt/starport/compute-client.py`；也可保留项目中的 `starport_compute.py`。
 
 ```sh
 python3 starport_compute.py health
@@ -84,4 +101,25 @@ python3 starport_compute.py cancel JOB_ID
 > 在指定预算内提交一次任务，保存 ID，查看日志并下载 /output 中的结果。不要输出令牌；
 > 提交结果未知时先核对，不能重复提交。
 
+使用 MCP 时可直接说：
+
+> 用 starport-compute 检查资源，把这个 Python 脚本作为一个远端任务提交，使用 2 CPU、
+> 4 GiB、1 GPU，最多 600 秒；保存任务 ID，确认完成和资源释放，把 /output 结果下载到项目。
+
+参考：[Claude Code MCP 配置](https://code.claude.com/docs/en/mcp)、
+[项目说明文件](https://code.claude.com/docs/en/memory)、
+[Desktop 本地 MCP](https://modelcontextprotocol.io/docs/develop/connect-local-servers)。
+
 `parallel: null` 表示不设置固定并发任务数上限，CPU／内存／GPU 的实际容量与已预留资源检查仍生效。`configuredLimits` 是配置上限，`limits` 是当前节点可提供的上限，两者不能混淆。内存单位为 GiB。桥接上传提交串行防止重复提交，并不限制已运行任务数量。
+
+## 服务器任务面板
+
+面板显示节点可用上限、配置上限和本安装任务的已申请资源；这些数字不是节点全局实时
+利用率，也不包含其他服务的预留。支持按项目、状态、任务 ID 或入口文件筛选，并查看
+增量日志、资源释放状态、退出码和产物。取消只针对选中的已登记任务，需要确认；提交
+结果未知时禁用任务操作，保留记录等待核对。
+
+自动同步每批最多八项未完成或缺配置的任务，同时最多两项查询。已完成任务使用缓存，
+详情可手动刷新；关闭网页不会取消任务。浏览器下载上限为 64 MiB，worker 分块校验后由
+控制端对完整传输计算 SHA-256，浏览器再次核对摘要和大小。较大产物使用项目计算客户端。
+旧 worker 产物清单只有大小时也可下载，不要求改写已有任务。
