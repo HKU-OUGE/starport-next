@@ -5,6 +5,13 @@
     "Automatic WSL links launch outside the project HOME and controlled proxy",
     "Installed Chrome rejects ozone-platform=auto"
   ],
+  "regression": {
+    "introducedByCommit": "cb05c60011e2f9ebdfc87189e56ee847a5807365",
+    "change": "Browser wrapper changed ozone-platform from wayland to auto during remote desktop integration",
+    "missedCoverage": "Remote mode passed x11 explicitly, masking the WSLg startup failure",
+    "fixedByCommit": "27b5964b51246ac50fece88fa5c552273efec3b9",
+    "automaticLinkHistory": "Current direct-launch failure observed; previous behavior of each automatic shortcut was not recorded"
+  },
   "shortcuts": {
     "desktopAndStartMenuEntries": 6,
     "recognizedAutomaticLinksRepaired": 3,
@@ -17,7 +24,8 @@
     "browser": "WSLg window and Unlock Keyring visible; existing browser reused by shortcut",
     "desktop": "independent WSLg window launched by shortcut",
     "claudeCode": "independent terminal launched by shortcut; onboarding rendered",
-    "controlledHttpsPage": "pending user keyring unlock",
+    "keyringUnlocked": "confirmed by user; reopening browser did not require another prompt",
+    "controlledHttpsPage": "Claude official login page rendered; Example Domain refresh rendered in WSLg browser",
     "officialAccountLogin": "pending"
   },
   "verification": {

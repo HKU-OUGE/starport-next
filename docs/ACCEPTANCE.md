@@ -169,3 +169,9 @@ Windows Node 87 通过／4 跳过；WSL Node 90 通过／1 跳过；Python 26 �
 项目边界重新验证通过，两台计算连接保留。Wayland／X11 参数在 WSL Bash 下分别验证；
 客户端配置命令在活动运行时拒绝写入。Windows Node 94 通过／5 跳过，源码及相关 skill
 检查通过。[脱敏记录](verification/wslg-shortcuts.json)。
+
+用户随后解锁密钥环，重新打开 WSLg Chrome 已显示 Claude 官方登录页；Example Domain
+刷新后正常呈现。官方账号授权仍未完成。追查提交确认 `cb05c60` 在加入网页桌面时将
+浏览器的 `wayland` 改为 `auto`，引入 WSLg 启动回归；网页模式显式传入 `x11`，掩盖了
+这个问题。不能将其归因于用户操作或未经证实的 Chrome 升级。自动图标的直接启动故障
+另行记录，不能据此断言用户以前点击的每个入口均不可用。

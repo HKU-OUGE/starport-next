@@ -74,6 +74,10 @@ Never reuse an old runtime's successful report to authorize a new version.
    Existing installs with `ozone-platform=auto` need `wsl clients-configure --state
    <actual-wsl-state>` while idle, then boundary verification; check Wayland for
    WSLg and X11 for web sessions. Do not reinstall all packages just for this fix.
+   Changes to shared browser wrappers require separate WSLg and web-display
+   acceptance: a remote launch may override a broken default display flag. Check
+   the introducing diff before attributing a regression to a browser upgrade or
+   user action; preserve the distinction between automatic links and project launchers.
    Verify browser, Desktop and Claude Code from the installed shortcuts as actual
    Windows windows, plus a controlled HTTPS page after user keyring unlock. A
    short-lived process acknowledgement is not a successful launch. Record account
