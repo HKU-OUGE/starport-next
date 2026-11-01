@@ -18,6 +18,7 @@ import { createJobManagement } from './job-management.mjs';
 import { createServices } from './services.mjs';
 import { createRemoteSettings } from './remote-settings.mjs';
 import { loadControlOptions } from './config.mjs';
+import {createViewer,viewerAsset} from './viewer.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
 const workspaceId=v=>typeof v==='string'&&/^[a-z][a-z0-9-]{0,47}$/.test(v);
@@ -25,7 +26,7 @@ export async function startHostControl(state,options={}){
   state=privateDir(state);
   const lock=path.join(state,'control.lock');
   try{fs.writeFileSync(lock,JSON.stringify({pid:process.pid}),{flag:'wx',mode:0o600});}catch{throw error('control_already_started_or_requires_reconciliation');}
-  let proxy,egress,compute,runtime,server,timer,tunnel;const computeSsh=[];
+  let proxy,egress,compute,runtime,server,timer,tunnel,viewer;const computeSsh=[];
   const workspaceFile=path.join(state,'workspaces.json');
   const workspaces=fs.existsSync(workspaceFile)?read(workspaceFile):['main'];
   if(!Array.isArray(workspaces)||workspaces.some(v=>!workspaceId(v)))throw error('invalid_workspace_registry');
@@ -69,7 +70,11 @@ export async function startHostControl(state,options={}){
       res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');
       try{
         const policy=access.policy(req),url=new URL(req.url,'http://control.invalid');
-        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/style.css'].includes(url.pathname)){
+        if(req.method==='GET'&&url.pathname.startsWith('/novnc/')){
+          await access.authenticate(req,policy);const bytes=viewerAsset(url.pathname);
+          res.writeHead(200,{'content-type':'text/javascript; charset=utf-8','cache-control':'no-store'});return res.end(bytes);
+        }
+        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/viewer.js','/style.css'].includes(url.pathname)){
           if(policy.mode==='cloudflare')await access.authenticate(req,policy);
           const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
           res.writeHead(200,{'content-type':name.endsWith('.js')?'text/javascript; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/html; charset=utf-8','cache-control':'no-store'});
@@ -159,7 +164,7 @@ export async function startHostControl(state,options={}){
           const b=await bodyJson(req,4096);if(!workspaceId(b.id)||workspaces.includes(b.id))throw error('invalid_or_existing_workspace');
           workspaces.push(b.id);writePrivate(workspaceFile,workspaces);return json(res,201,{id:b.id});
         }
-        const m=/^\/api\/workspaces\/([a-z][a-z0-9-]{0,47})\/(verify|exec|files|native|sdk|clients|open-folder)$/.exec(url.pathname);
+        const m=/^\/api\/workspaces\/([a-z][a-z0-9-]{0,47})\/(verify|exec|files|native|sdk|clients|open-folder|viewer-ticket)$/.exec(url.pathname);
         if(req.method==='POST'&&m&&workspaces.includes(m[1])){
           const [,_id,operation]=m,b=await bodyJson(req);
           if(verifying)throw error('workspace_verification_in_progress');
@@ -179,12 +184,13 @@ export async function startHostControl(state,options={}){
             receipt.runtimeDigest=runtime.digest();runtime.reports.set(_id,receipt);return json(res,200,receipt);
             }finally{verifying=false;}
           }
-          if(['exec','native','sdk','clients','open-folder'].includes(operation)){
+          if(['exec','native','sdk','clients','open-folder','viewer-ticket'].includes(operation)){
             // Stopping an owned GUI session must remain possible during an idle
             // runtime upgrade, when its previous verification is already stale.
             if(operation==='native'&&b.app==='stop'){await runtime.stopNative(_id);return json(res,200,{phase:'stopped'});}
             const proof=runtime.reports.get(_id);
             if(!proof?.passed||proof.runtimeDigest!==runtime.digest()||Date.now()-Date.parse(proof.checkedAt)>86400000)throw error('workspace_verification_required');
+            if(operation==='viewer-ticket')return json(res,200,viewer.ticket(_id,identity));
             if(operation==='open-folder'){
               if(policy.mode!=='local'||process.platform!=='win32')throw error('local_windows_action_required');
               return json(res,200,await openWorkspaceFolder(options.wslState||path.join(state,'wsl'),_id));
@@ -194,7 +200,7 @@ export async function startHostControl(state,options={}){
               if(r.code!==0)throw error('client_status_failed');return json(res,200,JSON.parse(r.stdout));
             }
             if(operation==='native'){
-              return json(res,200,await runtime.nativeAction(_id,b.app));
+              return json(res,200,await runtime.nativeAction(_id,b.app,b.display||'wslg'));
             }
             if(operation==='sdk'){
               if(!egress.modelReady)throw error('api_gateway_required');
@@ -211,11 +217,15 @@ export async function startHostControl(state,options={}){
         return json(res,404,{error:'unknown_route'});
       }catch(e){if(!res.headersSent)json(res,403,{error:/^[a-z][a-z0-9_]{1,79}$/.test(e.code||'')?e.code:'control_request_failed'});else res.end();}
     });
+    viewer=createViewer(server,{access:()=>access,runtime,verify:id=>{
+      const proof=runtime.reports.get(id);
+      if(!workspaces.includes(id)||!proof?.passed||proof.runtimeDigest!==runtime.digest()||Date.now()-Date.parse(proof.checkedAt)>86400000)throw error('workspace_verification_required');
+    }});
     await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(options.port??18884,'127.0.0.1',resolve);});
     const port=server.address().port;access=createAccess({port,key,access:options.access});
     if(options.tunnel)tunnel=startTunnel(state,options.tunnel,options.access);
     const result={port,url:`http://127.0.0.1:${port}/`,phase:'running',platform:process.platform,pid:process.pid};
     writePrivate(path.join(state,'control.json'),result);
-    return {...result,runtime,egress,compute,async close(){clearInterval(timer);runtime.close();compute.close();computeSsh.forEach(s=>s.close());egress.close();proxy?.close();tunnel?.close();server.closeAllConnections();server.close();writePrivate(path.join(state,'control.json'),{...result,phase:'stopped'});fs.rmSync(lock,{force:true});}};
-  }catch(e){clearInterval(timer);runtime?.close();compute?.close();computeSsh.forEach(s=>s.close());egress?.close();proxy?.close();tunnel?.close();server?.close();fs.rmSync(lock,{force:true});throw e;}
+    return {...result,runtime,egress,compute,async close(){clearInterval(timer);viewer.close();runtime.close();compute.close();computeSsh.forEach(s=>s.close());egress.close();proxy?.close();tunnel?.close();server.closeAllConnections();server.close();writePrivate(path.join(state,'control.json'),{...result,phase:'stopped'});fs.rmSync(lock,{force:true});}};
+  }catch(e){clearInterval(timer);viewer?.close();runtime?.close();compute?.close();computeSsh.forEach(s=>s.close());egress?.close();proxy?.close();tunnel?.close();server?.close();fs.rmSync(lock,{force:true});throw e;}
 }

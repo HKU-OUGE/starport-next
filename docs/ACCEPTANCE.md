@@ -132,3 +132,18 @@ Windows 面板按钮已实际打开当前 WSL 项目目录，桌面和手机布�
 新选择且保留已提交任务。面板登记、切换服务器、复制引用、停用和 390×844 表单已验收。
 自动 Conda 识别未发现环境；没有真实解释器／import 或业务数据验收。
 [脱敏记录](verification/dependency-reuse.json)与[使用说明](DEPENDENCIES.md)。
+
+## 远程项目桌面与 SDK 计算 MCP
+
+2026-11-01：创建本安装独立的 Tunnel、Access 应用和精确邮箱策略；匿名公网请求进入
+邮箱登录，源站无 JWT 请求拒绝。用户确认已通过公网邮箱登录。
+本机浏览器通过同一鉴权查看器验证 CLI 画面、方向键、页面重载后恢复和展开画面。
+Linux Desktop 成功启动，停在密钥环解锁；账号登录与实际聊天仍待用户完成。
+公网图形通道的实际键鼠、其他真实邮箱的拒绝登录单独待验，不以本机结果替代。
+
+实际 SDK 测试发现原单任务选项没有加载计算 MCP，已显式配置项目能力和计算指引。
+修复后真实模型调用 Write、Read 和 `mcp__starport-compute__compute_health`，文件读回
+一致并确认两台服务器就绪。两次验证合计 0.1216886 美元，未提交远端计算任务。
+Windows Node 87 通过／4 跳过；WSL Node 90 通过／1 跳过；Python 26 通过。
+远程 GUI 的真实 namespace 负例、WebSocket 身份／Origin／票据负例、源码和 skill
+校验通过。完整[脱敏记录](verification/remote-workspace.json)。

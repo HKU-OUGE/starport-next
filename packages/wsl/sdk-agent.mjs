@@ -10,7 +10,11 @@ if(typeof request.prompt!=='string'||!request.prompt.trim()||typeof request.mode
 const env={...process.env,CLAUDE_CONFIG_DIR:'/home/agent/.claude-sdk'};
 delete env.CLAUDE_CODE_OAUTH_TOKEN;delete env.ANTHROPIC_AUTH_TOKEN;
 const options={cwd:'/workspace',env,model:request.model,tools:['Read','Write','Edit','Glob','Grep','Bash'],
-  allowedTools:['Read','Write','Edit','Glob','Grep','Bash'],permissionMode:'acceptEdits',settingSources:[],
+  allowedTools:['Read','Write','Edit','Glob','Grep','Bash','mcp__starport-compute__*'],permissionMode:'acceptEdits',settingSources:[],
+  mcpServers:{'starport-compute':{command:'/usr/bin/python3',args:['-I','/opt/starport/compute-mcp.py'],
+    env:{STARPORT_COMPUTE_URL:process.env.STARPORT_COMPUTE_URL,STARPORT_COMPUTE_TOKEN:process.env.STARPORT_COMPUTE_TOKEN}}},
+  strictMcpConfig:true,
+  systemPrompt:{type:'preset',preset:'claude_code',append:fs.readFileSync('/opt/starport/COMPUTE-AGENT.md','utf8')},
   persistSession:true,maxTurns:8,effort:'low',includePartialMessages:false};
 if(request.resume){if(!/^[a-f0-9-]{36}$/.test(request.resume))throw Error('invalid_session_id');options.resume=request.resume;}
 const logs='/workspace/.starport-events';fs.mkdirSync(logs,{recursive:true,mode:0o700});

@@ -70,7 +70,11 @@ powershell -ExecutionPolicy Bypass -File scripts/setup-wsl-clients.ps1 -State pr
 
 `-EnableWslg` 是明确选择与 Windows **共享显示和剪贴板**。省略时只安装客户端，不开启图形入口。不要把其他用户的共享偏好写成默认批准；如果当前对话已作选择，无需再次询问。
 
-安装器通过所选节点启动临时、独立出口，下载官方签名的 Claude Code／Linux Desktop、Chrome（x64）或 Firefox（arm64）、校验摘要的 Node 和锁定版本的 Agent SDK。管理下载中继只监听当前 WSL NAT 的宿主接口，并限定该发行版的来源地址；项目命名空间没有访问该接口的路由。镜像网络或无法确认接口所有权时明确失败，不切换直连。软件安装日志及收据留在私有 `wsl/client-install` 中。
+安装器通过所选节点启动临时、独立出口，下载官方签名的 Claude Code／Linux Desktop、Chrome（x64）或 Firefox（arm64）、校验摘要的 Node 和锁定版本的 Agent SDK。管理下载通过 stdio 转发到受控代理，不监听 Windows 入站端口、不切换直连。软件安装日志及收据留在私有 `wsl/client-install` 中。
+
+同一个面板也支持“网页项目桌面”，可在本机或经过 Access 登录的远程浏览器内操作
+CLI、Desktop 和浏览器。新安装包含 TigerVNC／Openbox；已有安装补装和连接步骤见
+[远程客户端入口](REMOTE-ACCESS.md#一个入口使用三种客户端)。显示方式切换前关闭当前图形会话。
 
 重启本项目的控制进程，点击“验证边界”，再使用“Claude 工具”区的入口：
 

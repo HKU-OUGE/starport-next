@@ -1,0 +1,40 @@
+{
+  "date": "2026-11-01",
+  "platform": "Windows with owned WSL2 distribution",
+  "runtimeDigest": "1cec5eea4b4c4793d641dc9832d3601855df9d5d8fe6b2ffece11c9f404f05f6",
+  "ingress": {
+    "independentTunnelAndAccessApplication": true,
+    "anonymousPublicRedirectsToEmailLogin": true,
+    "originRejectsUnauthenticated": true,
+    "allowedEmailLogin": "confirmed by user",
+    "deniedEmailEndToEnd": "not tested with another real account",
+    "publicViewerEndToEnd": "pending user interaction"
+  },
+  "localViewer": {
+    "cliRendered": true,
+    "directionKeysResponded": true,
+    "reconnectRetainedWindows": true,
+    "desktopLaunched": true,
+    "desktopState": "waiting for user keyring unlock",
+    "nativeAccountLogin": "pending",
+    "expandedView": true
+  },
+  "sdk": {
+    "fileWriteAndReadBack": true,
+    "explicitComputeMcpConnected": true,
+    "readyNodes": 2,
+    "validationCalls": 2,
+    "totalCostUsd": 0.1216886,
+    "computeJobsSubmitted": 0
+  },
+  "tests": {
+    "windowsNodePassed": 87,
+    "windowsNodeSkipped": 4,
+    "wslNodePassed": 90,
+    "wslNodeSkipped": 1,
+    "pythonPassed": 26,
+    "sourceCheck": "passed",
+    "setupSkillValidation": "passed"
+  },
+  "scope": "No public hostname, email, credentials or cloud resource identifiers in this receipt. Native account conversations and full public viewer acceptance are not claimed."
+}

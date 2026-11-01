@@ -146,6 +146,16 @@ rejection separately from actual allowed/denied email login through the public
 domain. Missing domain, Audience or cloud routing leaves public acceptance pending;
 do not invent production values to make that check pass.
 
+For a remote URL covering CLI, Desktop and SDK, use the authenticated web project
+desktop described in REMOTE-ACCESS.md. A WSLg launch button alone is not remote
+interaction. Existing installs can add `wsl remote-display-install`, then update
+the idle runtime, restart only the owned control process and reverify. Preserve
+active remote compute jobs. Test pixels, keyboard input, reconnect and denied
+unauthenticated WebSocket upgrades. Never expose a host desktop or raw VNC port.
+Native account login and SDK API validation remain separate; do not claim all
+three authenticated just because their packages or launchers work. Keep the
+public URL available for the user's email-login test and record any pending result.
+
 WSL native startup merges the scoped compute MCP into project and Desktop config,
 and imports `AGENTS.md` from `CLAUDE.md`. Validate both inline-script submission
 and artifact retrieval, preserving existing instructions and unrelated MCPs.

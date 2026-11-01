@@ -113,7 +113,7 @@ print(json.dumps({'updated':True}))
 }
 
 export function createWslRuntime(state, { launch, destinations, capabilities, wslg=false, onState=()=>{} } = {}) {
-  const active=new Map(),nativeStates=new Map();const reports=new Map();let alive=true;
+  const active=new Map(),nativeStates=new Map(),viewers=new Map();const reports=new Map();let alive=true;
   const spawnRunner=launch||(()=>{
     if(process.platform!=='win32')throw error('wsl_runtime_requires_windows');
     const r=read(path.join(state,'wsl.json'));if(r.phase!=='installed')throw error('wsl_install_required');
@@ -124,7 +124,7 @@ export function createWslRuntime(state, { launch, destinations, capabilities, ws
   });
   function execute(workspace,request,{timeout=120000,onOutput=()=>{}}={}) {
     if(!alive||!/^[a-z][a-z0-9-]{0,47}$/.test(workspace))throw error('invalid_workspace');
-    if(request.operation==='native'&&!wslg)throw error('wslg_authorization_required');
+    if(request.operation==='native'&&request.display!=='remote'&&!wslg)throw error('wslg_authorization_required');
     const key=workspace+':'+request.operation;
     if(active.has(key))throw error('workspace_busy');
     if(['exec','sdk'].includes(request.operation)&&['exec','sdk'].some(op=>active.has(workspace+':'+op)))throw error('workspace_busy');
@@ -133,9 +133,13 @@ export function createWslRuntime(state, { launch, destinations, capabilities, ws
     let stdout='',stderr='',settled=false,bridge;
     const decoders={stdout:new StringDecoder('utf8'),stderr:new StringDecoder('utf8')};
     const done=new Promise((resolve,reject)=>{
-      const finish=(err,result)=>{if(settled)return;settled=true;clearTimeout(timer);active.delete(key);bridge?.close();onState();err?reject(err):resolve(result);};
+      const finish=(err,result)=>{if(settled)return;settled=true;clearTimeout(timer);active.delete(key);if(request.operation==='native'){viewers.get(workspace)?.stream.destroy();viewers.delete(workspace);}bridge?.close();onState();err?reject(err):resolve(result);};
       const timer=timeout===null?null:setTimeout(()=>{bridge?.close();child.kill();finish(error('workspace_operation_timeout'));},timeout);
-      bridge=pipeBridge(child,destinations,{onEvent:f=>{
+      bridge=pipeBridge(child,destinations,{onChannel:channel=>{
+        const viewer=viewers.get(workspace);
+        if(channel!=='viewer'||request.operation!=='native'||request.display!=='remote'||!viewer||viewer.attached)return;
+        viewer.attached=true;clearTimeout(viewer.timer);return viewer.stream;
+      },onEvent:f=>{
         if(f.type==='output'){
           if(typeof f.data!=='string'||f.data.length>32768)return finish(error('invalid_runner_output'));
           if(!decoders[f.stream])return finish(error('invalid_runner_stream'));
@@ -147,27 +151,29 @@ export function createWslRuntime(state, { launch, destinations, capabilities, ws
         else if(f.type==='disconnected')finish(error('workspace_control_disconnected'));
       }});
       active.set(key,{child,bridge,startedAt:new Date().toISOString()});
-      child.stdin.write(JSON.stringify({workspace,request:{...request,...token,...(request.operation==='native'?{wslg:true}:{})}})+'\n');
+      child.stdin.write(JSON.stringify({workspace,request:{...request,...token,...(request.operation==='native'?{wslg:request.display!=='remote'&&wslg}:{})}})+'\n');
     });
     onState();return done;
   }
-  async function nativeAction(workspace,app){
-    if(!wslg)throw error('wslg_authorization_required');
+  async function nativeAction(workspace,app,display='wslg'){
+    if(!['wslg','remote'].includes(display))throw error('invalid_display');
+    if(display==='wslg'&&!wslg)throw error('wslg_authorization_required');
     if(!['browser','desktop','terminal','login'].includes(app))throw error('invalid_native_app');
     const id=workspace+':native';
+    if(active.has(id)&&nativeStates.get(workspace)?.display!==display)throw error('close_existing_display_first');
     if(!active.has(id)){
       let readyResolve,readyReject,pending='';
       const ready=new Promise((resolve,reject)=>{readyResolve=resolve;readyReject=reject;});
-      nativeStates.set(workspace,{phase:'starting',apps:{}});
+      nativeStates.set(workspace,{phase:'starting',display,apps:{}});
       const timer=setTimeout(()=>{active.get(id)?.bridge.close();readyReject(error('native_start_timeout'));},20000);
-      const done=execute(workspace,{operation:'native'},{timeout:null,onOutput:({stream,text})=>{
+      const done=execute(workspace,{operation:'native',display},{timeout:null,onOutput:({stream,text})=>{
         if(stream!=='stdout')return;
         pending+=text;if(pending.length>65536){active.get(id)?.bridge.close();return;}
         let index;while((index=pending.indexOf('\n'))>=0){
           const line=pending.slice(0,index);pending=pending.slice(index+1);
           try{const value=JSON.parse(line);
-            if(value.kind==='native_ready'){nativeStates.set(workspace,{phase:'running',apps:{}});clearTimeout(timer);readyResolve();}
-            if(value.kind==='native_state'){const apps=Object.fromEntries(Object.entries(value.apps||{}).filter(([k,v])=>['browser','desktop','terminal','login'].includes(k)&&['running','stopped'].includes(v)));nativeStates.set(workspace,{phase:'running',apps});}
+            if(value.kind==='native_ready'){nativeStates.set(workspace,{phase:'running',display,apps:{}});clearTimeout(timer);readyResolve();}
+            if(value.kind==='native_state'){const apps=Object.fromEntries(Object.entries(value.apps||{}).filter(([k,v])=>['browser','desktop','terminal','login'].includes(k)&&['running','stopped'].includes(v)));nativeStates.set(workspace,{phase:'running',display,apps});}
           }catch{}
         }
       }});
@@ -179,6 +185,14 @@ export function createWslRuntime(state, { launch, destinations, capabilities, ws
   }
   const digest=()=>runtimeBundle().digest;
   return {execute,reports,nativeAction,digest,
+    attachViewer(workspace,stream){
+      const session=active.get(workspace+':native');
+      if(!session||nativeStates.get(workspace)?.display!=='remote')throw error('remote_display_required');
+      if(viewers.has(workspace))throw error('viewer_already_connected');
+      const viewer={stream,attached:false,timer:setTimeout(()=>stream.destroy(),10000)};viewers.set(workspace,viewer);
+      stream.on('error',()=>stream.destroy());stream.once('close',()=>{clearTimeout(viewer.timer);if(viewers.get(workspace)===viewer)viewers.delete(workspace);});
+      session.bridge.send({type:'native-action',app:'viewer'});
+    },
     async stopNative(workspace){
       const session=active.get(workspace+':native');if(!session)return;
       await new Promise((resolve,reject)=>{

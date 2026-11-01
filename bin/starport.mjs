@@ -49,6 +49,7 @@ const help = `Starport Next — 配置与部署规划工具
   starport control init --out private/host-control.json
   starport wsl install --state private/wsl --rootfs ubuntu.tar.gz --sha256 SHA256
   starport wsl clients-install --state private/wsl --config private/host-control.json
+  starport wsl remote-display-install --state private/wsl --config private/host-control.json
   starport wsl update-runtime --state private/wsl
 
 加密操作默认隐藏输入口令；自动化可传 --password-file，口令不会进入命令参数。
@@ -127,9 +128,9 @@ async function main() {
   }
   if(command==='wsl'){
     const action=args.shift();
-    if(action==='clients-install'){
+    if(action==='clients-install'||action==='remote-display-install'){
       const a=argumentsFor(args,['--state','--config']);
-      return show(await installWslClients(required(a,'--state'),loadControlOptions(required(a,'--config')),{onProgress:show}));
+      return show(await installWslClients(required(a,'--state'),loadControlOptions(required(a,'--config')),{onProgress:show,remoteOnly:action==='remote-display-install'}));
     }
     if(action==='update-runtime'){
       const a=argumentsFor(args,['--state']);return show(await updateWslRuntime(required(a,'--state')));

@@ -97,7 +97,7 @@ def prepare_workspace(base, name, uid=UID):
     return workspace
 
 
-def sandbox_args(workspace, runtime, etc, code, uid=UID, seccomp_fd=None, gui=False):
+def sandbox_args(workspace, runtime, etc, code, uid=UID, seccomp_fd=None, gui=False, remote=False):
     args = ['/usr/bin/bwrap', '--unshare-all', '--unshare-user',
             '--die-with-parent', '--new-session', '--hostname', 'starship',
             '--uid', str(uid), '--gid', str(uid), '--cap-drop', 'ALL',
@@ -132,7 +132,12 @@ def sandbox_args(workspace, runtime, etc, code, uid=UID, seccomp_fd=None, gui=Fa
     for dependency in ['/opt/google/chrome', '/opt/claude-desktop']:
         if pathlib.Path(dependency).is_dir():
             args += ['--ro-bind', dependency, dependency]
-    if gui:
+    if gui and remote:
+        args += ['--perms', '0700', '--dir', '/run/user/1000',
+                 '--tmpfs', '/tmp/.X11-unix',
+                 '--setenv', 'XDG_RUNTIME_DIR', '/run/user/1000',
+                 '--setenv', 'DISPLAY', ':1', '--setenv', 'STARPORT_REMOTE_DISPLAY', '1']
+    elif gui:
         wayland = pathlib.Path('/mnt/wslg/runtime-dir/wayland-0')
         x11 = pathlib.Path('/tmp/.X11-unix/X0')
         if not all(p.exists() and stat.S_ISSOCK(p.stat().st_mode) for p in [wayland, x11]):
@@ -164,7 +169,8 @@ def serve(base=BASE, code=CODE):
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     if operation not in ['exec', 'files', 'native', 'sdk']:
         raise ValueError('invalid_operation')
-    if operation == 'native' and request.get('wslg') is not True:
+    remote = operation == 'native' and request.get('display') == 'remote'
+    if operation == 'native' and not remote and request.get('wslg') is not True:
         raise ValueError('wslg_authorization_required')
     if request['operation'] == 'exec':
         argv = request.get('argv')
@@ -218,13 +224,13 @@ def serve(base=BASE, code=CODE):
                 sequence += 1
                 number = sequence
                 peers[number] = peer
-            peer.settimeout(120)
+            peer.settimeout(None if channel == 'viewer' else 120)
             threading.Thread(target=reader, args=(number, channel, peer), daemon=True).start()
 
     with tempfile.TemporaryDirectory(prefix='starport-pipe-') as temporary:
         runtime = pathlib.Path(temporary)
         os.chmod(runtime, 0o755)
-        for channel in ['proxy', 'model', 'compute']:
+        for channel in ['proxy', 'model', 'compute'] + (['viewer'] if remote else []):
             listener = socket.socket(socket.AF_UNIX)
             listener.bind(str(runtime / (channel + '.sock')))
             os.chmod(runtime / (channel + '.sock'), 0o666)
@@ -237,7 +243,7 @@ def serve(base=BASE, code=CODE):
             # controller identity before exec, so UID 1000 also owns the private
             # project on the distribution side and never maps to host root.
             identity = {'user': UID, 'group': UID, 'extra_groups': ()} if os.geteuid() == 0 else {}
-            child = subprocess.Popen(sandbox_args(workspace, runtime, code / 'etc', code / 'public', seccomp_fd=policy_fd, gui=operation == 'native'),
+            child = subprocess.Popen(sandbox_args(workspace, runtime, code / 'etc', code / 'public', seccomp_fd=policy_fd, gui=operation == 'native', remote=remote),
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE, env={'PATH': '/usr/bin:/bin'},
                                      pass_fds=(policy_fd,), start_new_session=True, **identity)
@@ -269,7 +275,7 @@ def serve(base=BASE, code=CODE):
                         raise ValueError('invalid_frame')
                     f = json.loads(line)
                     if f.get('type') == 'native-action':
-                        if operation != 'native' or f.get('app') not in ['browser', 'desktop', 'terminal', 'login']:
+                        if operation != 'native' or f.get('app') not in ['browser', 'desktop', 'terminal', 'login'] + (['viewer'] if remote else []):
                             raise ValueError('invalid_native_action')
                         child.stdin.write((json.dumps({'app': f['app']}) + '\n').encode())
                         child.stdin.flush()

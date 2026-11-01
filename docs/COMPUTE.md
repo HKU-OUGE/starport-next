@@ -95,7 +95,9 @@ Claude Code 和 Desktop Code 页使用 `/workspace` 项目。Desktop Chat 使用
 账号登录、MCP 握手和真实模型工具任务分别验收。API 模式的 CLI 成功不代表订阅账号已登录，
 协议测试成功也不代表 Desktop 已完成登录后的聊天调用。
 
-SDK／Bash 仍可使用 [compute-client.py](../scripts/compute-client.py)。新 WSL 运行时已把它
+WSL Agent SDK 显式加载同一个 `starport-compute` MCP 和计算指引，不依赖账号客户端的
+设置加载选项。SDK 配置只允许这个计算 MCP，项目能力令牌通过子进程环境传入；真实
+服务器凭据仍保留在 Windows。SDK／Bash 也可使用 [compute-client.py](../scripts/compute-client.py)。新 WSL 运行时已把它
 部署在只读的 `/opt/starport/compute-client.py`；也可保留项目中的 `starport_compute.py`。
 
 ```sh

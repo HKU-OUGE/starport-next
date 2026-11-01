@@ -5,7 +5,7 @@ import { spawn,spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { cleanEnv } from '../packages/runtime/common.mjs';
 const source=fileURLToPath(new URL('../packages/wsl/',import.meta.url));
-export function fixture(directory,{gui=false}={}){
+export function fixture(directory,{gui=false,remote=false}={}){
   // The root controller launches bwrap as the project user. Only public fixture
   // code needs traversal; prepare_workspace keeps project data private.
   if(process.getuid()===0)fs.chmodSync(directory,0o755);
@@ -26,6 +26,7 @@ ${gui?`original_args=m.sandbox_args
 original_filter=m.seccomp_filter
 def gui_args(*args,**kwargs):
  kwargs['gui']=True
+ kwargs['remote']=${remote?'True':'False'}
  return original_args(*args,**kwargs)
 m.sandbox_args=gui_args
 m.seccomp_filter=lambda gui=False:original_filter(gui=True)` : ''}

@@ -3,7 +3,7 @@ import net from 'node:net';
 import { error } from '../runtime/common.mjs';
 
 // Only the trusted child can choose one of these channel names, never a host or port.
-export function pipeBridge(child, destinations, { onEvent = () => {} } = {}) {
+export function pipeBridge(child, destinations, { onEvent = () => {}, onChannel = () => undefined } = {}) {
   const peers = new Map(); let pending = '', closed = false;
   const send = frame => {
     if (closed) return;
@@ -31,9 +31,11 @@ export function pipeBridge(child, destinations, { onEvent = () => {} } = {}) {
         if (!Number.isSafeInteger(f.id) || f.id < 1) throw error('invalid_channel');
         if (f.type === 'open') {
           const port = destinations[f.channel];
-          if (!Number.isInteger(port) || peers.has(f.id) || peers.size >= 48) throw error('channel_not_allowed');
-          const p = net.connect({ host: '127.0.0.1', port }); peers.set(f.id, p);
-          p.setTimeout(120000, () => p.destroy());
+          if (peers.has(f.id) || peers.size >= 48) throw error('channel_not_allowed');
+          const p = Number.isInteger(port) ? net.connect({ host: '127.0.0.1', port }) : onChannel(f.channel);
+          if (!p) throw error('channel_not_allowed');
+          peers.set(f.id, p);
+          p.setTimeout?.(120000, () => p.destroy());
           p.on('error', () => p.destroy());
           p.on('data', data => { for (let i = 0; i < data.length; i += 16384) send({ type: 'data', id: f.id, data: data.subarray(i, i + 16384).toString('base64') }); });
           p.on('close', () => { peers.delete(f.id); send({ type: 'close', id: f.id }); });

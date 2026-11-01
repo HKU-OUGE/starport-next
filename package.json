@@ -17,6 +17,8 @@
     "plan": "node bin/starport.mjs plan --config examples/desktop-dsw.json"
   },
   "dependencies": {
-    "jose": "6.2.14"
+    "@novnc/novnc": "1.7.0",
+    "jose": "6.2.14",
+    "ws": "8.22.1"
   }
 }

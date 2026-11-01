@@ -9,13 +9,14 @@ import {fixture} from './wsl-fixture.mjs';
 import {createWslRuntime} from '../packages/wsl/runtime.mjs';
 import {createEgress} from '../packages/runtime/egress.mjs';
 
-const supported=process.platform==='linux'&&fs.existsSync('/mnt/wslg/runtime-dir/wayland-0')&&fs.existsSync('/tmp/.X11-unix/X0')&&spawnSync('unshare',['-Urn','true']).status===0;
-test('real WSLg policy preserves outer network/filesystem isolation and Chromium nested namespaces',{skip:!supported,timeout:60000},async t=>{
+for(const remote of [false,true]){
+const supported=process.platform==='linux'&&(remote||fs.existsSync('/mnt/wslg/runtime-dir/wayland-0')&&fs.existsSync('/tmp/.X11-unix/X0'))&&spawnSync('unshare',['-Urn','true']).status===0;
+test(`real ${remote?'remote display':'WSLg'} policy preserves outer network/filesystem isolation and Chromium nested namespaces`,{skip:!supported,timeout:60000},async t=>{
   const dir=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-gui-proof-'));
   const upstream=http.createServer();upstream.on('connect',(_req,s)=>{s.write('HTTP/1.1 200 Connection Established\r\n\r\n');s.on('data',b=>s.write(b));});
   await new Promise(resolve=>upstream.listen(0,'127.0.0.1',resolve));
   const e=await createEgress({upstream:{kind:'http',url:`http://127.0.0.1:${upstream.address().port}`},hosts:['example.com']});
-  const r=createWslRuntime(dir,{launch:fixture(dir,{gui:true}),destinations:{proxy:e.proxyPort,model:e.apiPort,compute:e.apiPort},capabilities:()=>({})});
+  const r=createWslRuntime(dir,{launch:fixture(dir,{gui:true,remote}),destinations:{proxy:e.proxyPort,model:e.apiPort,compute:e.apiPort},capabilities:()=>({})});
   t.after(()=>{r.close();e.close();upstream.closeAllConnections();upstream.close();fs.rmSync(dir,{recursive:true,force:true});});
   const run=script=>r.execute('main',{operation:'exec',argv:['/usr/bin/python3','-I','-c',script]});
   const result=await run(`import json,pathlib,os,socket,subprocess,ctypes,errno
@@ -26,7 +27,7 @@ lib=ctypes.CDLL(None,use_errno=True)
 mount=lib.mount(b'none',b'/tmp',b'tmpfs',0,None)==-1 and ctypes.get_errno()==errno.EPERM
 setns=lib.setns(-1,0)==-1 and ctypes.get_errno()==errno.EPERM
 print(json.dumps({
- 'displaySocket':pathlib.Path('/run/user/1000/wayland-0').is_socket(),
+ 'displaySocket':${remote?"not pathlib.Path('/run/user/1000/wayland-0').exists() and not pathlib.Path('/tmp/.X11-unix/X0').exists()":"pathlib.Path('/run/user/1000/wayland-0').is_socket()"},
  'windowsAbsent':not pathlib.Path('/mnt/c').exists(),
  'entireWslgAbsent':not pathlib.Path('/mnt/wslg').exists(),
  'hostBusAbsent':not pathlib.Path('/run/dbus/system_bus_socket').exists(),
@@ -51,3 +52,4 @@ s=socket.create_connection(('127.0.0.1',13128));s.settimeout(4);s.sendall(b'CONN
   e.pause();assert.match((await run(proxy)).stdout,/502 Bad/);
   e.resume();assert.match((await run(proxy)).stdout,/200 Connection/);
 });
+}

@@ -3,19 +3,21 @@ import json
 import os
 import pathlib
 import shutil
+import socket
 import subprocess
 import sys
 import threading
 import time
 
-if os.environ.get('STARPORT_WSLG_SHARED') != '1':
+remote = os.environ.get('STARPORT_REMOTE_DISPLAY') == '1'
+if not remote and os.environ.get('STARPORT_WSLG_SHARED') != '1':
     raise SystemExit('wslg_authorization_required')
 os.umask(0o077)
 os.environ['CLAUDE_CONFIG_DIR'] = '/home/agent/.claude-account'
 os.environ['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'] = '1'
 os.environ['BROWSER'] = '/usr/local/bin/starport-browser'
-os.environ['ELECTRON_OZONE_PLATFORM_HINT'] = 'wayland'
-os.environ['XDG_SESSION_TYPE'] = 'wayland'
+os.environ['ELECTRON_OZONE_PLATFORM_HINT'] = 'x11' if remote else 'wayland'
+os.environ['XDG_SESSION_TYPE'] = 'x11' if remote else 'wayland'
 os.environ['GSK_RENDERER'] = 'cairo'
 os.environ['LIBGL_ALWAYS_SOFTWARE'] = '1'
 for directory in ['.config', '.local/share/applications', '.local/state/starport', '.claude-account']:
@@ -29,7 +31,63 @@ bus = subprocess.run(['/usr/bin/dbus-daemon','--session','--fork','--print-addre
 os.environ['DBUS_SESSION_BUS_ADDRESS'] = bus.stdout.splitlines()[0]
 pathlib.Path('/home/agent/.config/mimeapps.list').write_text('[Default Applications]\nx-scheme-handler/http=starport-browser.desktop\nx-scheme-handler/https=starport-browser.desktop\n')
 apps = {}
+display_processes = []
 output_lock = threading.Lock()
+
+if remote:
+    # RFB is bound only inside this network namespace. No host port or desktop
+    # is exported. The authenticated controller requests each viewer connection.
+    log = open('/home/agent/.local/state/starport/display.log', 'w')
+    display_processes.append(subprocess.Popen([
+        '/usr/bin/Xtigervnc', ':1', '-geometry', '1440x900', '-depth', '24',
+        '-localhost', '-rfbport', '5901', '-SecurityTypes', 'None', '-ac',
+        '-nolisten', 'tcp', '-nolock', '-SendCutText=1', '-AcceptCutText=1',
+        '-MaxCutText=1048576'], stdin=subprocess.DEVNULL, stdout=log, stderr=log))
+    for _ in range(100):
+        if display_processes[0].poll() is not None:
+            raise SystemExit('remote_display_start_failed')
+        if pathlib.Path('/tmp/.X11-unix/X1').exists():
+            break
+        time.sleep(0.05)
+    else:
+        raise SystemExit('remote_display_start_timeout')
+    display_processes.append(subprocess.Popen(['/usr/bin/openbox', '--sm-disable'],
+                              stdin=subprocess.DEVNULL, stdout=log, stderr=log))
+
+
+def connect_viewer():
+    def forward():
+        local, control = None, None
+        try:
+            local = socket.create_connection(('127.0.0.1', 5901), timeout=10)
+            local.settimeout(None)
+            control = socket.socket(socket.AF_UNIX)
+            control.connect('/run/bridge/viewer.sock')
+            def pump(src, dst):
+                try:
+                    while True:
+                        data = src.recv(16384)
+                        if not data:
+                            break
+                        dst.sendall(data)
+                except OSError:
+                    pass
+                finally:
+                    try:
+                        dst.shutdown(socket.SHUT_RDWR)
+                    except OSError:
+                        pass
+            worker = threading.Thread(target=pump, args=(local, control), daemon=True)
+            worker.start()
+            pump(control, local)
+        except OSError:
+            pass
+        finally:
+            if local:
+                local.close()
+            if control:
+                control.close()
+    threading.Thread(target=forward, daemon=True).start()
 
 def report():
     with output_lock:
@@ -38,6 +96,9 @@ def report():
         }}), flush=True)
 
 def launch(name):
+    if name == 'viewer' and remote:
+        connect_viewer()
+        return
     if name in apps and apps[name].poll() is None:
         return
     commands = {
@@ -49,6 +110,10 @@ def launch(name):
     }
     if name not in commands:
         raise ValueError('invalid_native_app')
+    if remote and name == 'browser':
+        commands[name].insert(1, '--ozone-platform=x11')
+    if remote and name == 'desktop':
+        commands[name].append('--ozone-platform=x11')
     # Diagnostics stay in the private project HOME; authentication URLs and tokens
     # must never be included in control-plane status or repository receipts.
     with open('/home/agent/.local/state/starport/' + name + '.log', 'w') as log:
@@ -68,10 +133,10 @@ try:
     for line in sys.stdin:
         launch(json.loads(line)['app'])
 finally:
-    for child in apps.values():
+    for child in [*apps.values(), *display_processes]:
         if child.poll() is None:
             child.terminate()
-    for child in apps.values():
+    for child in [*apps.values(), *display_processes]:
         try:
             child.wait(timeout=3)
         except subprocess.TimeoutExpired:

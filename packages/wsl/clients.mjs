@@ -1,7 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import net from 'node:net';
-import os from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {privateDir,writePrivate,read,run,error} from '../runtime/common.mjs';
 import {managedProxy} from '../runtime/managed-proxy.mjs';
@@ -9,38 +7,25 @@ import {createEgress,DEFAULT_HOSTS} from '../runtime/egress.mjs';
 import {NATIVE_HOSTS,nativeFiles} from '../runtime/native.mjs';
 import {guestFiles} from '../runtime/agent.mjs';
 import {wslArgs} from './runtime.mjs';
+import {runInstaller} from './installer-pipe.mjs';
 
-// Temporary installer ingress binds only the owned WSL NAT interface. Project
-// namespaces cannot route to it. No firewall or global WSL settings are changed.
-export async function installWslClients(state,options,{onProgress=()=>{}}={}){
+// Downloads use the controlled proxy over stdio, with no Windows inbound port.
+export async function installWslClients(state,options,{onProgress=()=>{},remoteOnly=false}={}){
   if(process.platform!=='win32')throw error('wsl_install_requires_windows');
   state=privateDir(state);const receipt=read(path.join(state,'wsl.json'));
   if(receipt.phase!=='installed')throw error('wsl_install_required');
   const dir=privateDir(path.join(state,'client-install')),lock=path.join(dir,'install.lock');
   try{fs.writeFileSync(lock,JSON.stringify({pid:process.pid}),{flag:'wx',mode:0o600});}catch{throw error('client_install_requires_reconciliation');}
-  let proxy,egress,relay;const sockets=new Set();
+  let proxy,egress;
   try{
-    const route=await run('wsl.exe',wslArgs(receipt.distribution,'/usr/sbin/ip','-j','route','get','1.1.1.1'));
-    if(route.code!==0)throw error('wsl_management_route_unavailable');
-    const [{gateway,prefsrc}]=JSON.parse(route.stdout);
-    if(net.isIP(gateway)!==4||net.isIP(prefsrc)!==4||!Object.values(os.networkInterfaces()).flat().some(v=>v.address===gateway))throw error('owned_wsl_nat_interface_required');
     proxy=await managedProxy(dir,options.proxyCandidates,{binary:options.proxyBinary,onExit:()=>egress?.pause()});
     egress=await createEgress({upstream:proxy.upstream,hosts:[...new Set([...DEFAULT_HOSTS,...NATIVE_HOSTS])]});
-    relay=net.createServer(client=>{
-      if(client.remoteAddress!==prefsrc){client.destroy();return;}
-      const upstream=net.connect(egress.proxyPort,'127.0.0.1');sockets.add(client);sockets.add(upstream);
-      for(const s of [client,upstream]){s.on('error',()=>{client.destroy();upstream.destroy();});s.on('close',()=>sockets.delete(s));s.setTimeout(120000,()=>s.destroy());}
-      client.pipe(upstream);upstream.pipe(client);
-    });
-    await new Promise((resolve,reject)=>{relay.once('error',reject);relay.listen(0,gateway,resolve);});
-    const installProxy=`http://${gateway}:${relay.address().port}`;
-    const connection=await run('wsl.exe',wslArgs(receipt.distribution,'/usr/bin/curl','-fSs','--connect-timeout','8','--max-time','15','--proxy',installProxy,'https://example.com'),{maxBytes:65536});
-    if(connection.code!==0)throw error('controlled_installer_proxy_unreachable');
     const architecture=await run('wsl.exe',wslArgs(receipt.distribution,'/usr/bin/uname','-m'));
     const arch=architecture.stdout.trim()==='aarch64'?'arm64':architecture.stdout.trim()==='x86_64'?'x64':null;
     if(!arch)throw error('unsupported_guest_architecture');
     const files=guestFiles(arch);
-    const script=fs.readFileSync(new URL('./install-clients.sh',import.meta.url),'utf8').replaceAll('\r\n','\n');
+    const fullScript=fs.readFileSync(new URL('./install-clients.sh',import.meta.url),'utf8').replaceAll('\r\n','\n');
+    const script=remoteOnly?fullScript.split('install -d -m 0755 /etc/apt/keyrings')[0]:fullScript;
     const bootstrap=`import json,sys,pathlib,subprocess,fcntl,os
 q=json.load(sys.stdin)
 assert os.geteuid()==0 and pathlib.Path('/opt/starport-wsl/owner').read_text()==q['owner']
@@ -62,19 +47,19 @@ sys.exit(result.returncode)
 `;
     onProgress({phase:'installing_wsl_clients'});
     writePrivate(path.join(dir,'status.json'),{phase:'installing',startedAt:new Date().toISOString()});
-    const installed=await run('wsl.exe',wslArgs(receipt.distribution,'/usr/bin/python3','-I','-c',bootstrap),{
-      input:JSON.stringify({owner:receipt.owner,proxy:installProxy,files,script}),timeout:1800000,boundedCapture:true,maxBytes:128*1024});
+    const installed=await runInstaller(receipt,bootstrap,{owner:receipt.owner,files,script},egress.proxyPort);
     writePrivate(path.join(dir,'install.log'),installed.stdout+installed.stderr);
     if(installed.code!==0)throw error('wsl_client_install_failed');
+    if(remoteOnly){await configureWslClients(state);const result={remoteDisplayInstalled:true,checkedAt:new Date().toISOString()};writePrivate(path.join(dir,'status.json'),{phase:'installed',...result});return result;}
     const result={installed:true,checkedAt:new Date().toISOString(),architecture:arch,browser:arch==='x64'?'chrome':'firefox',sdkVersion:'0.3.316',loginVerified:false};
     writePrivate(path.join(state,'clients.json'),result);await configureWslClients(state);writePrivate(path.join(dir,'status.json'),{phase:'installed'});return result;
-  }finally{for(const s of sockets)s.destroy();relay?.close();egress?.close();proxy?.close();fs.rmSync(lock,{force:true});}
+  }finally{egress?.close();proxy?.close();fs.rmSync(lock,{force:true});}
 }
 
 export async function configureWslClients(state){
   const receipt=read(path.join(state,'wsl.json')),clients=read(path.join(state,'clients.json'));
   const standard=nativeFiles(clients.architecture);
-  const browser=clients.architecture==='x64'?`#!/bin/bash\nset -eu\nexec /usr/bin/google-chrome-stable --user-data-dir="$HOME/.config/starport-browser" --ozone-platform=wayland --proxy-server=http://127.0.0.1:13128 --proxy-bypass-list="localhost;127.0.0.1;[::1]" --disable-quic --no-first-run --lang=zh-TW "$@"\n`:standard['/usr/local/bin/starport-browser'];
+  const browser=clients.architecture==='x64'?`#!/bin/bash\nset -eu\nexec /usr/bin/google-chrome-stable --user-data-dir="$HOME/.config/starport-browser" --ozone-platform=auto --proxy-server=http://127.0.0.1:13128 --proxy-bypass-list="localhost;127.0.0.1;[::1]" --disable-quic --no-first-run --lang=zh-TW "$@"\n`:standard['/usr/local/bin/starport-browser'];
   const files={
     '/usr/local/bin/starport-browser':browser,
     '/usr/share/applications/starport-browser.desktop':standard['/usr/share/applications/starport-browser.desktop'],

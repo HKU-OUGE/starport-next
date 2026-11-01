@@ -2,6 +2,7 @@ import {initOperations} from './operations.js';
 import {initShell} from './shell.js';
 import {initRemoteSettings} from './remote.js';
 import {initResources} from './resources.js';
+import {initViewer} from './viewer.js';
 const $=id=>document.getElementById(id);let status,csrf='',folder='',selected='',polling=false,connectionError=false,sdkRunning=false;
 const errors={authentication_required:'请输入本机访问码。',workspace_verification_required:'请先完成工作区边界验证。',wsl_runtime_requires_windows:'当前主机不是 Windows；WSL2 实机验证待完成。',controlled_proxy_not_running:'受控代理未启动，请配置订阅和节点。',workspace_busy:'该项目正在执行操作，请稍后重试。',workspace_operations_active:'请等待当前工作区操作完成后再验证。',enable_controlled_egress_first:'请先配置并启用受控出口。'};
 function problem(e){$('error').textContent=errors[e.message]||e.message;}
@@ -12,6 +13,8 @@ const shell=initShell();
 const operations=initOperations({api,problem,action,el});
 initRemoteSettings({api,problem,action});
 initResources({api,problem,action});
+const viewer=initViewer({api,action,problem,workspace:()=>selected});
+Object.assign(errors,{close_existing_display_first:'请先关闭工作区应用，再切换打开方式。',remote_display_required:'请先在网页模式启动一个客户端。',viewer_already_connected:'该项目桌面已有连接，请先在原页面断开画面。'});
 Object.assign(errors,{compute_unavailable:'计算连接暂时不可用。',compute_outcome_unknown_check_before_retry:'提交结果待核对，请勿重复提交。',job_already_finished:'任务已经结束。',job_operation_pending:'任务操作尚未返回，请稍后刷新。',service_registration_failed:'服务注册未完成，请检查本机日志。',artifact_integrity_mismatch:'下载校验失败，请重新获取产物。',panel_artifact_too_large_use_compute_client:'此产物超过 64 MiB，请使用项目计算客户端下载。'});
 Object.assign(errors,{password_requires_12_to_1024_characters:'口令必须为 12 至 1024 个字符。',profile_password_or_integrity_failed:'口令不正确或配置包已损坏。',profile_destination_exists:'已有同名配置，请换一个名称。',configuration_preview_required:'请重新预览配置后再导入。',invalid_profile_name:'配置名称须以小写字母开头，只使用小写字母、数字和连字符，最多 48 字符。',encrypted_profile_required:'含连接或凭据的配置必须使用加密包。',configuration_operation_busy:'另一项配置操作正在进行，请稍后重试。'});
 async function refresh(){if(polling)return;polling=true;try{status=await api('/api/status');if(connectionError){$('error').textContent='';connectionError=false;}csrf=status.csrf;$('login').hidden=true;$('console').hidden=false;$('connection').textContent='已连接';$('connection').className='pill good';$('platform').textContent={win32:'Windows',linux:'Linux',darwin:'macOS'}[status.control.platform]||status.control.platform;$('egress').textContent=status.egress.enabled?'已连接':'已关闭';$('toggle-egress').textContent=status.egress.enabled?'暂停出口':'恢复出口';$('compute').textContent=`${status.compute.summary?.ready??0} / ${status.compute.summary?.configured??0} 就绪`;$('capacity').textContent=status.compute.summary?.ready?`${status.compute.summary.cpus} CPU · ${status.compute.summary.memory_gib} GiB · ${status.compute.summary.gpus} GPU`:'等待服务器连接';$('runtime').textContent=status.runtime.installed?'已安装':'待安装';$('updated').textContent='后台检查 '+(status.control.updatedAt?new Date(status.control.updatedAt).toLocaleTimeString():'—');
@@ -19,8 +22,9 @@ if(status.workspaces.join()!==[...$('workspace').options].map(o=>o.value).join()
 const report=status.runtime.reports.find(r=>r.workspace===selected),busy=status.runtime.active.some(r=>r.workspace===selected&&['exec','sdk'].includes(r.operation));$('verified').textContent=report?.passed?'边界验证通过':'未验证';$('verified').className='pill'+(report?.passed?' good':'');$('run').disabled=!report?.passed||busy||sdkRunning;
 $('open-folder').hidden=status.control.platform!=='win32'||status.control.remote!=='local';$('open-folder').disabled=!report?.passed;
 $('configuration').hidden=status.control.remote!=='local';
-$('native-note').textContent=status.runtime.wslg?'WSLg · 共享显示与剪贴板':'WSLg 未启用；请先完成客户端安装并配置显示共享。';
-for(const name of ['browser','desktop','terminal','login','stop'])$('native-'+name).disabled=name==='stop'?!status.runtime.wslg:!report?.passed||!status.runtime.wslg;
+viewer.update(status);
+const remoteDisplay=$('client-display').value==='remote';$('native-note').textContent=remoteDisplay?'WSL2 项目桌面':'WSLg · 共享显示与剪贴板';
+for(const name of ['browser','desktop','terminal','login','stop'])$('native-'+name).disabled=name==='stop'?false:!report?.passed||(!remoteDisplay&&!status.runtime.wslg);
 $('clients-refresh').disabled=!report?.passed||busy||sdkRunning;$('sdk-run').disabled=sdkRunning||busy||!report?.passed||!status.model?.configured;
 $('sdk-model').textContent=status.model?.configured?'模型：'+(status.model.model||'默认模型')+' · 按实际调用计费，未设置美元预算上限':'尚未配置 API Key；CLI 和 Desktop 的账号登录独立进行。';
 operations.update(status);shell.update(status);
@@ -41,7 +45,8 @@ $('workspace').addEventListener('change',()=>{selected=$('workspace').value;fold
 $('execute').addEventListener('submit',async e=>{e.preventDefault();$('run').disabled=true;$('output').textContent='执行中…';try{const v=await api(`/api/workspaces/${selected}/exec`,{script:$('script').value});$('output').textContent=v.stdout+v.stderr+`\n退出码：${v.code}`;}catch(e){problem(e);}finally{await refresh();}});
 $('upload').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>64*1024*1024)throw Error('单文件上限为 64 MiB');const bytes=new Uint8Array(await f.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));await files({operation:'write',path:joined(f.name),data:btoa(binary),sha256:await digest(bytes)});await list();}catch(e){problem(e);}finally{e.target.value='';}});
 action($('clients-refresh'),async()=>{const v=await api(`/api/workspaces/${selected}/clients`,{});$('clients-output').textContent=`Node：${v.node||'未安装'}\nClaude Code：${v.claudeCode||'未安装'}\nAgent SDK：${v.agentSdk||'未安装'}\nClaude Desktop：${v.desktopInstalled?'已安装（请在应用内确认登录）':'未安装'}\n浏览器：${v.browser||'未安装'}\nClaude Code 账号：${v.account.loggedIn?'已登录':'待登录'}\n计算 MCP：Code ${v.computeMcp?.claudeCodeConfigured?'已配置':'未配置'} · Desktop ${v.computeMcp?.desktopConfigured?'已配置':'未配置'}\n项目计算指引：${v.computeMcp?.guidancePresent?'已就绪':'待配置'}\nMCP 配置状态不代表账号登录或真实对话验收。`;});
-for(const app of ['browser','desktop','terminal','login','stop'])action($('native-'+app),async()=>{await api(`/api/workspaces/${selected}/native`,{app});$('clients-output').textContent=app==='stop'?'工作区图形应用已关闭。':'已请求打开 WSLg 窗口；请在 Windows 桌面查看。';await refresh();});
+for(const app of ['browser','desktop','terminal','login','stop'])action($('native-'+app),async()=>{const display=$('client-display').value;await api(`/api/workspaces/${selected}/native`,{app,display});if(app==='stop'){viewer.disconnect();$('clients-output').textContent='工作区图形应用已关闭。';}else if(display==='remote'){await viewer.connect();$('clients-output').textContent='已在项目桌面打开。';}else $('clients-output').textContent='已打开 WSLg 窗口。';await refresh();});
+$('client-display').addEventListener('change',refresh);
 $('sdk-form').addEventListener('submit',async e=>{
   e.preventDefault();sdkRunning=true;$('sdk-run').disabled=true;$('clients-refresh').disabled=true;$('run').disabled=true;$('error').textContent='';$('sdk-output').textContent='任务运行中…';
   try{

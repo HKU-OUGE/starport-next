@@ -2,6 +2,39 @@
 
 本机控制面板左侧的“远程访问”可设置域名、允许登录的完整邮箱、Cloudflare 团队地址、应用 Audience，以及可选的本机 Tunnel 连接器。该页仅对本机访问码会话开放；远程 Access 用户不能修改此设置。
 
+## 一个入口使用三种客户端
+
+邮箱登录后，打开左侧“Claude 工具”，选择项目并完成边界验证。
+
+| 入口 | 使用方式 | 独立认证 |
+| --- | --- | --- |
+| Claude Code CLI | 选择“网页项目桌面”，点击 Claude Code CLI，在终端内操作 | Claude 官方账号 |
+| Claude Desktop | 同一项目桌面内点击 Claude Desktop | Claude 官方账号 |
+| Agent SDK | 在下方输入任务并运行 | Windows 控制端保存的 API 配置 |
+
+网页项目桌面包含项目内的终端、Linux Desktop 和浏览器。它使用项目自己的虚拟显示，
+通过鉴权后的 WebSocket 传递画面和键鼠；不公开 Windows 桌面或 VNC 端口。
+三者共用该项目的文件和计算 MCP，CLI／Desktop 与 SDK 的认证、会话和计费仍各自独立。
+这是 Next 的网页操作入口；不是 Claude 官方的 `remote-control` 会话。
+
+安装客户端时会安装 TigerVNC 与 Openbox。已有 WSL2 安装可在没有活动项目操作时补装：
+
+```sh
+node bin/starport.mjs wsl remote-display-install --state private/wsl --config private/host-control.json
+node bin/starport.mjs wsl update-runtime --state private/wsl
+```
+
+随后重启本安装的控制端、重新验证项目。下载通过受控代理和 stdio 通道完成，无需开放
+Windows 入站端口。`npm ci --ignore-scripts` 安装锁定版本的 noVNC 和 WebSocket 库。
+
+本机仍可选择 WSLg 窗口；切换显示方式前先关闭工作区应用。一个项目同一时间连接一个
+网页查看器；“断开画面”保留应用，“关闭工作区应用”结束项目图形会话。连接最长 30 分钟，
+到期重新连接，应用仍保留。登录过期或允许策略变化会断开连接。移动端可缩放查看画面，
+完整终端输入建议使用实体键盘。传递文字为手动操作，不自动同步访问设备剪贴板。
+
+公网验收应分别记录邮箱登录、画面与键鼠、重连、SDK 调用，以及 CLI／Desktop 账号登录。
+安装成功、MCP 就绪、出现登录页面均不代表已经完成 Claude 真实对话验证。
+
 ## 连接已有 Cloudflare 配置
 
 1. 在 Cloudflare 创建自托管 Access 应用，使用计划公开的域名，例如 `console.example.com`。建立 Allow 策略，逐个填写允许的邮箱；需要邮箱验证码时启用相应身份提供方式。见 [自托管应用](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/) 与 [Access 策略](https://developers.cloudflare.com/cloudflare-one/access-controls/policies/)。
