@@ -195,3 +195,7 @@ Windows Node 95 通过／5 跳过；实际 WSL 显示与边界测试 8 项全部
 源码检查、PowerShell 语法和 setup／uninstall skill 校验通过。
 详见[本轮脱敏记录](verification/dual-display.json)和安装 skill 的
 [双显示模式回归清单](../skills/starport-setup/references/dual-display-regression.md)。
+
+用户反馈看不到密钥环后，确认其正在另一个总览标签页，而原查看器已断开。
+已在用户当前标签页进入 Claude 工具、重新连接并展开，同一个 Desktop／密钥环窗口恢复，
+Password 输入框可点击聚焦。这是一次实际重连通过；连续两次重连与刷新检查仍另行待验。

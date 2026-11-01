@@ -36,6 +36,7 @@
   },
   "viewer": {
     "localExpandedCanvas": "passed; visible keyring dialog",
+    "reconnectFromUserCurrentTab": "passed once after previous viewer disconnected; same Desktop and keyring dialog restored, password field focused",
     "reconnectTwiceAndReload": "pending in this regression run",
     "publicUi": "pending; browser navigation tool timed out, HTTP Access redirect alone does not verify UI",
     "identityOriginAndSingleUseTicketNegativeTests": "passed"
