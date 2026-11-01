@@ -47,9 +47,9 @@ test('compute credentials and host metadata stay on the operator side; other pro
   const c=await createCompute({state:temp(t),connection:{url:`http://127.0.0.1:${port}`,token:'example-operator-token'}});t.after(()=>c.close());
   const request=(project,route,body)=>fetch(`http://127.0.0.1:${c.port}${route}`,{method:body===undefined?'GET':'POST',headers:{authorization:'Bearer '+c.capability(project)},body:body===undefined?undefined:JSON.stringify(body)});
   const health=await(await request('one','/health')).json();assert.equal(health.ready,true);assert.ok(!JSON.stringify(health).includes('private-'));
-  const submitted=await(await request('one','/jobs',{entry:'train.py',files:{'train.py':Buffer.from('print(1)').toString('base64')}})).json();assert.equal(submitted.id,id);assert.equal(submitted.account,undefined);
-  assert.equal((await request('two',`/jobs/${id}/cancel`,{})).status,403);
-  assert.equal((await request('two',`/jobs/${id}/logs`)).status,403);
+  const submitted=await(await request('one','/jobs',{entry:'train.py',files:{'train.py':Buffer.from('print(1)').toString('base64')}})).json();assert.match(submitted.id,/^[a-f0-9]{32}$/);assert.equal(submitted.node,'primary');assert.equal(submitted.account,undefined);
+  assert.equal((await request('two',`/jobs/${submitted.id}/cancel`,{})).status,403);
+  assert.equal((await request('two',`/jobs/${submitted.id}/logs`)).status,403);
   assert.deepEqual((await(await request('two','/jobs')).json()).jobs,[]);
   assert.ok(observed.every(v=>v.auth==='Bearer example-operator-token'));
   assert.equal((await request('one','/management/resume',{})).status,403);

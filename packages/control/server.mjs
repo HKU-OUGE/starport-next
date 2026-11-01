@@ -16,6 +16,8 @@ import { openWorkspaceFolder } from './explorer.mjs';
 import { createConfigurationTransfer } from './config-transfer.mjs';
 import { createJobManagement } from './job-management.mjs';
 import { createServices } from './services.mjs';
+import { createRemoteSettings } from './remote-settings.mjs';
+import { loadControlOptions } from './config.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
 const workspaceId=v=>typeof v==='string'&&/^[a-z][a-z0-9-]{0,47}$/.test(v);
@@ -23,7 +25,7 @@ export async function startHostControl(state,options={}){
   state=privateDir(state);
   const lock=path.join(state,'control.lock');
   try{fs.writeFileSync(lock,JSON.stringify({pid:process.pid}),{flag:'wx',mode:0o600});}catch{throw error('control_already_started_or_requires_reconciliation');}
-  let proxy,egress,compute,runtime,server,timer,tunnel,computeSsh;
+  let proxy,egress,compute,runtime,server,timer,tunnel;const computeSsh=[];
   const workspaceFile=path.join(state,'workspaces.json');
   const workspaces=fs.existsSync(workspaceFile)?read(workspaceFile):['main'];
   if(!Array.isArray(workspaces)||workspaces.some(v=>!workspaceId(v)))throw error('invalid_workspace_registry');
@@ -38,22 +40,36 @@ export async function startHostControl(state,options={}){
     egress=options.testEgress||await createEgress({upstream:proxy?.upstream||{kind:'http',url:'http://127.0.0.1:9'},
       hosts:[...new Set([...DEFAULT_HOSTS,...NATIVE_HOSTS,...(options.hosts||[])])],apiKey:options.apiKey,model:options.model});
     if(!proxy&&!options.testEgress)egress.pause();
-    if(options.compute?.ssh)computeSsh=await startComputeSsh(options.compute.ssh);
-    compute=await createCompute({state,connection:options.compute?{url:computeSsh?.url||options.compute.url,token:options.compute.token}:undefined});
+    const connections=[];
+    for(const node of options.computeNodes||(options.compute?[{...options.compute,id:'primary',name:'主服务器'}]:[])){
+      if(!node.ssh){connections.push(node);continue;}
+      try{const ssh=await startComputeSsh(node.ssh);computeSsh.push(ssh);connections.push({...node,url:ssh.url});}
+      catch{connections.push({...node,url:undefined,unavailable:true});}
+    }
+    compute=await createCompute({state,connections,defaultNode:options.defaultComputeNode});
     const jobs=createJobManagement(compute);
     runtime=createWslRuntime(options.wslState||path.join(state,'wsl'),{launch:options.testLaunch,wslg:options.wslg===true,
       destinations:{proxy:egress.proxyPort,model:egress.apiPort,compute:compute.port},
       capabilities:workspace=>({modelCapability:egress.modelReady?egress.capability:undefined,computeCapability:compute.capability(workspace)})});
     const refresh=async()=>{if(refreshing)return;refreshing=true;try{health=await compute.health();refreshedAt=new Date().toISOString();}finally{refreshing=false;}};
     await refresh();timer=setInterval(refresh,10000);timer.unref();
-    let access;
+    let access,activeAccess=options.access;
+    const remoteSettings=createRemoteSettings(options.configurationFile,{
+      port:()=>server.address().port,
+      active:()=>({enabled:!!activeAccess,hostname:activeAccess?.hostname||null,tunnel:tunnel?.status()||{phase:'not-configured'}}),
+      activate:async()=>{
+        const next=loadControlOptions(options.configurationFile),nextAccess=createAccess({port:server.address().port,key,access:next.access});
+        const nextTunnel=next.tunnel?startTunnel(state,next.tunnel,next.access):undefined;
+        access=nextAccess;activeAccess=next.access;tunnel?.close();tunnel=nextTunnel;
+      }
+    });
     const json=(res,status,value)=>jsonResponse(res,status,value);
     server=http.createServer(async(req,res)=>{
       res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
       res.setHeader('Referrer-Policy','no-referrer');res.setHeader('X-Content-Type-Options','nosniff');
       try{
         const policy=access.policy(req),url=new URL(req.url,'http://control.invalid');
-        if(req.method==='GET'&&['/','/app.js','/operations.js','/style.css'].includes(url.pathname)){
+        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/style.css'].includes(url.pathname)){
           if(policy.mode==='cloudflare')await access.authenticate(req,policy);
           const name=url.pathname==='/'?'index.html':url.pathname.slice(1);
           res.writeHead(200,{'content-type':name.endsWith('.js')?'text/javascript; charset=utf-8':name.endsWith('.css')?'text/css; charset=utf-8':'text/html; charset=utf-8','cache-control':'no-store'});
@@ -67,6 +83,18 @@ export async function startHostControl(state,options={}){
         }
         const identity=await access.authenticate(req,policy);
         if(req.method!=='GET')access.check(req,policy,identity);
+        if(url.pathname==='/api/remote-access'||url.pathname==='/api/remote-access/check'){
+          if(policy.mode!=='local')throw error('local_remote_settings_required');
+          if(req.method==='GET'&&url.pathname==='/api/remote-access')return json(res,200,remoteSettings.snapshot());
+          if(req.method==='POST'&&url.pathname==='/api/remote-access')return json(res,200,await remoteSettings.save(await bodyJson(req,128*1024)));
+          if(req.method==='POST'&&url.pathname==='/api/remote-access/check'){await bodyJson(req,1024);return json(res,200,await remoteSettings.check());}
+          throw error('unknown_route');
+        }
+        if(req.method==='GET'&&url.pathname==='/api/nodes')return json(res,200,{nodes:health.nodes||[],defaultNode:health.defaultNode,summary:health.summary});
+        const admission=/^\/api\/nodes\/([a-z][a-z0-9-]{0,47})\/admission$/.exec(url.pathname);
+        if(req.method==='POST'&&admission){
+          const b=await bodyJson(req,1024),result=compute.admission(admission[1],b.paused);await refresh();return json(res,200,result);
+        }
         if(url.pathname==='/api/services'||url.pathname.startsWith('/api/services/')){
           if(policy.mode!=='local')throw error('local_service_action_required');
           if(req.method==='GET'&&url.pathname==='/api/services')return json(res,200,await services.status());
@@ -176,6 +204,6 @@ export async function startHostControl(state,options={}){
     if(options.tunnel)tunnel=startTunnel(state,options.tunnel,options.access);
     const result={port,url:`http://127.0.0.1:${port}/`,phase:'running',platform:process.platform,pid:process.pid};
     writePrivate(path.join(state,'control.json'),result);
-    return {...result,runtime,egress,compute,async close(){clearInterval(timer);runtime.close();compute.close();computeSsh?.close();egress.close();proxy?.close();tunnel?.close();server.closeAllConnections();server.close();writePrivate(path.join(state,'control.json'),{...result,phase:'stopped'});fs.rmSync(lock,{force:true});}};
-  }catch(e){clearInterval(timer);runtime?.close();compute?.close();computeSsh?.close();egress?.close();proxy?.close();tunnel?.close();server?.close();fs.rmSync(lock,{force:true});throw e;}
+    return {...result,runtime,egress,compute,async close(){clearInterval(timer);runtime.close();compute.close();computeSsh.forEach(s=>s.close());egress.close();proxy?.close();tunnel?.close();server.closeAllConnections();server.close();writePrivate(path.join(state,'control.json'),{...result,phase:'stopped'});fs.rmSync(lock,{force:true});}};
+  }catch(e){clearInterval(timer);runtime?.close();compute?.close();computeSsh.forEach(s=>s.close());egress?.close();proxy?.close();tunnel?.close();server?.close();fs.rmSync(lock,{force:true});throw e;}
 }

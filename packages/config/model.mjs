@@ -43,7 +43,7 @@ export function defaultConfig(topology = 'desktop-dsw') {
 }
 
 export function validateConfig(input) {
-  object(input, ['format','version','topology','ui','paths','engine','network','nodes','dependencies','access','execution','lifecycle','extensions','workspace','computePolicy']);
+  object(input, ['format','version','topology','ui','paths','engine','network','nodes','dependencies','access','execution','lifecycle','extensions','workspace','computePolicy','computePolicies','defaultComputeNode']);
   if (input.format !== 'starport-config' || input.version !== 1) fail('unsupported_configuration');
   if (!['desktop-dsw','single-machine','server-hosted'].includes(input.topology)) fail('invalid_topology');
   object(input.ui, ['language','advancedCollapsed']);
@@ -69,7 +69,8 @@ export function validateConfig(input) {
   if (!array(input.nodes, 32)) fail('invalid_nodes');
   unique(input.nodes, 'id');
   for (const node of input.nodes) {
-    object(node, ['id','transport','connectionRef','runtime','budget']);
+    object(node, ['id','name','transport','connectionRef','runtime','budget']);
+    if(node.name!==undefined&&(typeof node.name!=='string'||!node.name.trim()||node.name.length>64||/[\x00-\x1f]/.test(node.name)))fail('invalid_node');
     if (!id(node.id) || !['dsw','ssh','local'].includes(node.transport) ||
         !(node.transport === 'local' ? node.connectionRef === null : reference(node.connectionRef)) ||
         !['linux-gvisor','local-microvm'].includes(node.runtime) ||
@@ -98,10 +99,16 @@ export function validateConfig(input) {
     object(input.workspace,['kind','wslg']);
     if(input.workspace.kind!=='wsl2'||typeof input.workspace.wslg!=='boolean')fail('invalid_workspace_preferences');
   }
-  if(input.computePolicy!==undefined){
-    const p=input.computePolicy;object(p,['cpus','memoryGiB','gpus','timeout','parallel']);
+  function computePolicy(p){
+    object(p,['cpus','memoryGiB','gpus','timeout','parallel']);
     if(!integer(p.cpus,1,512)||!integer(p.memoryGiB,2,4096)||!integer(p.gpus,0,64)||!integer(p.timeout,1,86400)||!(p.parallel===null||integer(p.parallel,1,1024)))fail('invalid_compute_policy');
   }
+  if(input.computePolicy!==undefined)computePolicy(input.computePolicy);
+  if(input.computePolicies!==undefined){
+    object(input.computePolicies,input.nodes.map(n=>n.id));
+    for(const p of Object.values(input.computePolicies))computePolicy(p);
+  }
+  if(input.defaultComputeNode!==undefined&&input.defaultComputeNode!==null&&!input.nodes.some(n=>n.id===input.defaultComputeNode))fail('invalid_default_compute_node');
   return clone(input);
 }
 

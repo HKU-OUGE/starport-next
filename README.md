@@ -19,6 +19,8 @@
 
 Windows 优先采用 **主系统管理网络与服务器，WSL2 执行项目程序**。主系统可以读写项目文件，工作区不挂载 Windows 文件。已提供 Claude Code、Agent SDK、Linux Desktop 与浏览器安装入口；独立 WSLg 窗口需显式开启，并与 Windows 共享显示和剪贴板。安装与访问码窗口见 [Windows 控制端](docs/WINDOWS-HOST.md)，兼容性和待验证项见 [WSL2 评估](docs/WSL2-ASSESSMENT.md)。
 
+面板采用左侧导航，支持[多服务器](docs/MULTI-SERVER.md)分别监控、筛选任务和暂停接单。
+[远程访问页](docs/REMOTE-ACCESS.md)可设置已有 Cloudflare Access 的域名、邮箱和 Tunnel。
 服务器任务面板提供资源概况、筛选、日志、产物下载和取消；服务页可注册 Windows
 登录启动。Claude Code／Desktop 通过项目计算 MCP 接入远端任务，项目内自动生成
 `AGENTS.md` 和 `CLAUDE.md`。配置页可加密导出、预览并导入到新配置；不自动切换当前安装。
@@ -71,6 +73,8 @@ node bin/starport.mjs local chat --state private/local-workspace --prompt-file p
 | [验收矩阵](docs/ACCEPTANCE.md) | 哪些已测，哪些必须在目标机器验收 |
 | [独立计算资源](docs/COMPUTE.md) | SSH／DSW worker、CPU／GPU 任务与 Claude 调用 |
 | [后台服务](docs/SERVICES.md) | Windows 登录启动、进程恢复与服务管理 |
+| [多服务器](docs/MULTI-SERVER.md) | 节点登记、默认服务器与任务归属 |
+| [远程访问](docs/REMOTE-ACCESS.md) | 域名、邮箱、Access 与 Tunnel 设置 |
 | [Agent 入口](AGENTS.md) | 安装、开发和接手指引 |
 
 ```text

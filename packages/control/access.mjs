@@ -5,7 +5,7 @@ import { error } from '../runtime/common.mjs';
 const same=(a,b)=>{const x=Buffer.from(a||''),y=Buffer.from(b||'');return x.length===y.length&&crypto.timingSafeEqual(x,y);};
 export function validateAccess(c){
   if(c===undefined)return null;
-  if(!/^https:\/\/[a-z0-9-]+\.cloudflareaccess\.com$/.test(c.issuer||'')||!/^([a-z0-9-]+\.)+[a-z]{2,}$/.test(c.hostname||'')||typeof c.audience!=='string'||!c.audience||!Array.isArray(c.allowedEmails)||!c.allowedEmails.length)throw error('invalid_access_configuration');
+  if(!/^https:\/\/[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.cloudflareaccess\.com$/.test(c.issuer||'')||typeof c.hostname!=='string'||c.hostname.length>253||!/^([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(c.hostname)||typeof c.audience!=='string'||!c.audience||c.audience.length>512||/[\x00-\x20]/.test(c.audience)||!Array.isArray(c.allowedEmails)||!c.allowedEmails.length||c.allowedEmails.length>100||c.allowedEmails.some(e=>typeof e!=='string'||e.length>254||!/^[^\s@*]+@[^\s@*]+\.[^\s@*]+$/.test(e)))throw error('invalid_access_configuration');
   return c;
 }
 export async function verifyAccess(token,c,{keySet}={}){

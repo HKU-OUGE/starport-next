@@ -32,7 +32,7 @@ function Get-Disabled {
 }
 function Read-Manifest {
     if (-not (Test-Path -LiteralPath $manifestFile)) { throw 'startup_registration_required' }
-    $m=Get-Content -LiteralPath $manifestFile -Raw | ConvertFrom-Json
+    $m=Get-Content -LiteralPath $manifestFile -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($m.format -ne 'starport-user-services' -or $m.version -ne 1 -or $m.state -ne $State -or $m.repo -ne $repo -or $m.config -ne $Config) { throw 'startup_manifest_mismatch' }
     return $m
 }
@@ -43,7 +43,7 @@ if ($Action -eq 'enable') {
     $Node=[IO.Path]::GetFullPath($Node)
     foreach ($p in @($State,$Config,$Node,$supervisor,$manifestFile)) { if ($p -match '["\r\n\x00]') { throw 'invalid_service_path' } }
     if (-not (Test-Path -LiteralPath $State -PathType Container) -or -not (Test-Path -LiteralPath $Config -PathType Leaf) -or -not (Test-Path -LiteralPath $Node -PathType Leaf)) { throw 'configured_installation_required' }
-    $settings=Get-Content -LiteralPath $Config -Raw | ConvertFrom-Json
+    $settings=Get-Content -LiteralPath $Config -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($settings.format -ne 'starport-host-control' -or $settings.version -ne 1) { throw 'invalid_control_configuration' }
     if (Test-Path -LiteralPath $manifestFile) { $m=Read-Manifest; if ($m.node -ne $Node) { throw 'startup_node_changed_reconcile_first' } }
     $manifest=@{format='starport-user-services';version=1;repo=$repo;state=$State;config=$Config;node=$Node;id=$id}

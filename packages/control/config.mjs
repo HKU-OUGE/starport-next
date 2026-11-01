@@ -3,6 +3,7 @@ import path from 'node:path';
 import { readJson } from '../config/store.mjs';
 import { relative } from '../config/model.mjs';
 import { error } from '../runtime/common.mjs';
+import { controlNodes,connectionBinding } from './compute-nodes.mjs';
 
 export function loadControlOptions(file){
   const c=readJson(file),base=path.dirname(path.resolve(file));
@@ -22,11 +23,13 @@ export function loadControlOptions(file){
   if(c.apiKeyFile)o.apiKey=secret(c.apiKeyFile);
   if(c.model)o.model=c.model;
   if(c.hosts)o.hosts=c.hosts;
-  if(c.compute){
-    o.compute={url:c.compute.url,token:secret(c.compute.tokenFile)};
-    if(c.compute.ssh)o.compute.ssh={...c.compute.ssh,identityFile:resolve(c.compute.ssh.identityFile),knownHostsFile:resolve(c.compute.ssh.knownHostsFile)};
-    if(c.compute.url&&c.compute.ssh)throw error('choose_one_compute_transport');
-  }
+  const compute=controlNodes(c);o.defaultComputeNode=compute.defaultNode;
+  o.computeNodes=compute.nodes.map(n=>{
+    const result={id:n.id,name:n.name||n.id,url:n.url,token:secret(n.tokenFile)};
+    if(n.ssh)result.ssh={...n.ssh,identityFile:resolve(n.ssh.identityFile),knownHostsFile:resolve(n.ssh.knownHostsFile)};
+    result.binding=connectionBinding({url:n.url,ssh:n.ssh,token:result.token});
+    return result;
+  });
   if(c.access)o.access=c.access;
   if(c.tunnel)o.tunnel={tokenFile:resolve(c.tunnel.tokenFile),binary:c.tunnel.binary?resolve(c.tunnel.binary):undefined};
   return o;

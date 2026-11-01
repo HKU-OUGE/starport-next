@@ -25,7 +25,7 @@ export function createServices(state,configurationFile,{platform=process.platfor
       return {supported:true,startup:cached||{registered:false,enabled:false,kind:'current-user-login'},
         ...(registrationError?{error:registrationError}:{}),
         supervisor:{phase:fresh?'running':'stopped',checkedAt:receipt?.checkedAt||null},
-        services:(Array.isArray(receipt?.services)?receipt.services:[]).filter(s=>['control','compute'].includes(s.id)).map(s=>({id:s.id,phase:fresh?s.phase:'unknown',error:s.error||null}))};
+        services:(Array.isArray(receipt?.services)?receipt.services:[]).filter(s=>['control','compute'].includes(s.id)||/^compute-[a-z][a-z0-9-]{0,47}$/.test(s.id)).map(s=>({id:s.id,phase:fresh?s.phase:'unknown',error:s.error||null}))};
     },
     async action(action){
       if(!['enable','disable','start'].includes(action))throw error('invalid_service_action');

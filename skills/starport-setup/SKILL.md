@@ -108,6 +108,28 @@ before retrying and report cross-service scheduling and quota limits accurately.
 Keep configured ceilings separate from physical node capacity. `parallel: null`
 removes the fixed concurrent-job count, but resource admission remains enforced.
 
+For multiple servers, follow [MULTI-SERVER.md](../../docs/MULTI-SERVER.md). Give every
+worker its own connection, local port, token and state; preserve legacy `primary`
+when migrating old jobs. Reuse authorized Pi credentials as independent copies,
+but verify each new host fingerprint before authenticated SSH. For a fresh server,
+use the standalone archive installer described in COMPUTE.md; never install Pi as
+a prerequisite. Keep node IDs stable, retain the requested default, and verify one
+real job per added machine. Never turn an unknown submission into a retry on another
+node. Register each workerComputeFile with the login supervisor and verify per-node
+health; do not equate synthetic multi-node tests with multiple live servers.
+For external dependency reuse, read [DEPENDENCIES.md](../../docs/DEPENDENCIES.md).
+Archive reuse is implemented; arbitrary dependency mounts are not. Obtain the
+chosen node and directory before mounting, and do not claim a symlink or mount alias
+hides paths embedded in package files or mount metadata.
+
+For domain/email settings, follow [REMOTE-ACCESS.md](../../docs/REMOTE-ACCESS.md).
+Use the local panel's Remote Access page for an existing Cloudflare application.
+Keep Tunnel tokens on the host and never echo them. This page does not provision
+cloud resources or update the cloud email policy. Verify local unauthenticated
+rejection separately from actual allowed/denied email login through the public
+domain. Missing domain, Audience or cloud routing leaves public acceptance pending;
+do not invent production values to make that check pass.
+
 WSL native startup merges the scoped compute MCP into project and Desktop config,
 and imports `AGENTS.md` from `CLAUDE.md`. Validate both inline-script submission
 and artifact retrieval, preserving existing instructions and unrelated MCPs.

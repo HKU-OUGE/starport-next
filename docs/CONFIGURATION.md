@@ -41,6 +41,10 @@ node bin/starport.mjs config export --profile profiles/imported --out full-backu
 
 ## 控制面板入口
 
+多服务器导出保留节点 ID、名称、默认节点及逐节点 `computePolicies`；各节点连接材料
+分别加密。通用 HTTP 端点没有 worker 安装配置时会提示另行接入。Cloudflare Access／
+Tunnel 不随当前安装导出，迁移后在“远程访问”页重新配置和验收。
+
 本机面板的 **配置导入／导出** 可导出“当前安装”或此前导入的配置。默认下载不含连接地址
 和凭据的模板；勾选“包含连接与凭据”后输入至少 12 字符的口令，下载 scrypt＋AES-256-GCM
 加密包。导出已导入的加密配置时使用原口令。口令仅在本次操作中使用，不保存在浏览器存储。

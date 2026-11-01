@@ -1,7 +1,7 @@
 # 第三方来源
 
 `packages/worker/worker.py`、`guest_entry.py`、`probe.py`、`gpu_probe.py` 和
-`configure_gpu.py` 及 `tests/test_worker.py` 改编自 [Starport Pi](https://github.com/HKU-OUGE/starport-pi)，
+`configure_gpu.py`、`install.py` 及 `tests/test_worker.py` 改编自 [Starport Pi](https://github.com/HKU-OUGE/starport-pi)，
 Copyright (c) 2026 Starport contributors，MIT License。这些源码由 Next 独立维护，
 不加载 Pi 包、配置、进程或服务器 worker。
 

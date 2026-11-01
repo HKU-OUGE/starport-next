@@ -10,6 +10,22 @@ Next 的 Windows 控制端保存服务器连接和凭据；WSL2 内的 Claude Co
 
 ## 安装与资源
 
+安装缓存可复用；外部项目依赖的只读挂载设计与路径信息限制见 [DEPENDENCIES.md](DEPENDENCIES.md)。
+
+首次接入没有缓存的 CPU 服务器，可使用 `packages/worker/install.py`。先在控制端取得并
+校验固定版本 rootfs 与 gVisor 归档（含 sidecar），通过严格主机校验的 SSH 上传到本次
+安装独占的临时目录；同时上传 Next 的 install、worker、guest_entry、configure_gpu、
+probe、gpu_probe 源文件。远端命令如下，示例值需替换为已校验的归档摘要和随机 owner：
+
+```sh
+python3 -I install.py --rootfs rootfs.tar.gz --sha256 ROOTFS_SHA256 --runtime-archive runtime.tar.bz2 --runtime-sha256 RUNTIME_SHA256 --cpus 4 --memory-gib 8 --owner OWNER_HEX_64
+```
+
+安装器不下载文件，验证归档后在独立暂存目录解包，并原子安装到 Next 专属目录。
+默认不启用 GPU、不设任务数限制；只接受实际 CPU affinity 内的预算。已存在安装则拒绝
+覆盖，响应丢失时先检查 `installation.json` 的 owner。首次安装不需要 Pi 包或 Pi 服务。
+可一次性复制已有缓存；复制后的归档及运行时由 Next 独立保存和校验。
+
 服务器目录为 `~/.local/share/starport-next-worker`。`packages/worker/provision.py`
 仅接收可信安装方的 JSON：`dependencyRoot` 指向已校验的本地运行时缓存，`cpuIndices`、
 `memoryGiB`、`gpuIndices`、`maxParallel` 为已授权预算，`owner` 是安装收据标识，
@@ -53,6 +69,10 @@ node scripts/start-worker-compute.mjs --config private/worker-compute.json
 `http://127.0.0.1:19091/`，`compute.tokenFile` 指向同一个私有令牌文件，结束活动会话后
 重启本项目控制进程并重新验证。连接材料变化时需要核对原任务，不能静默切换服务器。
 关闭网页不会取消任务；关闭计算桥接会切断网络，远端任务仍自行运行、超时及释放。
+
+接入多台服务器使用 [MULTI-SERVER.md](MULTI-SERVER.md) 的 `computeNodes`。
+Claude 先读 `compute_health.nodes`，提交时指定 `node`；CLI 使用 `--node`。
+每台服务器分别执行资源检查，不允许把多机合计容量用于单个任务。
 
 ## Claude 使用方式
 

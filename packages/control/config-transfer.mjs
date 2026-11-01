@@ -6,6 +6,7 @@ import {bundle,decodeBundle,preview} from '../config/portable.mjs';
 import {encrypt} from '../config/crypto.mjs';
 import {readJson,importProfile,exportProfile,loadProfile} from '../config/store.mjs';
 import {privateDir,error} from '../runtime/common.mjs';
+import {controlNodes} from './compute-nodes.mjs';
 
 const nameOk=n=>typeof n==='string'&&n!=='current'&&/^[a-z][a-z0-9-]{0,47}$/.test(n);
 const digest=value=>crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -39,17 +40,23 @@ export function snapshotControl(file,{includeSecrets=false}={}){
       values['secret://network-selection']={kind:'node-selection',candidates:nodes.nodes.slice(0,8).map((_,nodeIndex)=>({subscriptionRef:'secret://network-subscription',nodeIndex}))};
     }
   }
-  if(host.workerComputeFile){
-    const workerFile=resolve(file,host.workerComputeFile),worker=readJson(workerFile),connectionFile=resolve(workerFile,worker.connectionFile),connection=readJson(connectionFile),p=worker.limits;
+  const registered=host.computeNodes?controlNodes(host).nodes:host.workerComputeFile?[{id:'compute',workerComputeFile:host.workerComputeFile}]:[];
+  for(const n of registered){
+    if(!n.workerComputeFile){warnings.push('generic_compute_endpoint_requires_separate_setup');continue;}
+    const workerFile=resolve(file,n.workerComputeFile),worker=readJson(workerFile),connectionFile=resolve(workerFile,worker.connectionFile),connection=readJson(connectionFile),p=worker.limits;
     if(worker.format!=='starport-worker-compute'||worker.version!==1||!['ssh','dsw'].includes(connection.mode))throw error('unsupported_worker_configuration');
-    config.topology='desktop-dsw';config.computePolicy={cpus:p.cpus,memoryGiB:p.memory_gib,gpus:p.gpus,timeout:p.timeout,parallel:p.parallel??null};
-    config.nodes=[{id:'compute',transport:connection.mode,connectionRef:'secret://compute-connection',runtime:'linux-gvisor',budget:{cpus:p.cpus,memoryGiB:p.memory_gib,gpus:Array.from({length:p.gpus},(_,i)=>i)}}];
+    config.topology='desktop-dsw';const policy={cpus:p.cpus,memoryGiB:p.memory_gib,gpus:p.gpus,timeout:p.timeout,parallel:p.parallel??null};
+    if(host.computeNodes){config.computePolicies??={};config.computePolicies[n.id]=policy;}else config.computePolicy=policy;
+    const ref=host.computeNodes?'secret://compute-'+n.id:'secret://compute-connection';
+    config.nodes.push({id:n.id,...(n.name?{name:n.name}:{}),transport:connection.mode,connectionRef:ref,runtime:'linux-gvisor',budget:{cpus:p.cpus,memoryGiB:p.memory_gib,gpus:Array.from({length:p.gpus},(_,i)=>i)}});
     if(includeSecrets){
       const privateKey=secret(resolve(connectionFile,connection.identityFile));
-      values['secret://compute-connection']=connection.mode==='dsw'?{kind:'dsw-connection',instanceId:connection.instanceId,region:connection.region,user:connection.user,privateKey,credentials:cloudCredentials(resolve(connectionFile,connection.credentialsFile))}:
+      values[ref]=connection.mode==='dsw'?{kind:'dsw-connection',instanceId:connection.instanceId,region:connection.region,user:connection.user,privateKey,credentials:cloudCredentials(resolve(connectionFile,connection.credentialsFile))}:
         {kind:'ssh-connection',host:connection.user+'@'+connection.host,port:connection.port||22,privateKey};
     }
-  }else if(host.compute)warnings.push('generic_compute_endpoint_requires_separate_setup');
+  }
+  if(!registered.length&&host.compute)warnings.push('generic_compute_endpoint_requires_separate_setup');
+  if(host.computeNodes){const preferred=controlNodes(host).defaultNode;config.defaultComputeNode=config.nodes.some(n=>n.id===preferred)?preferred:null;}
   if(host.access)warnings.push('public_access_requires_separate_setup');
   warnings.push('new_device_requires_host_key_runtime_and_display_verification');
   return {value:bundle(validateConfig(config),values,{includeSecrets}),warnings};
@@ -75,7 +82,7 @@ export function createConfigurationTransfer(state,configurationFile){
           for(const [key,old] of previews)if(old.expires<Date.now())previews.delete(key);
           if(previews.size>=8)previews.delete(previews.keys().next().value);
           previews.set(token,{digest:digest(b.bundle),expires:Date.now()+600000});
-          return {previewToken:token,preview:value,model:decoded.config.engine.model,workspace:decoded.config.workspace,computePolicy:decoded.config.computePolicy};
+          return {previewToken:token,preview:value,model:decoded.config.engine.model,workspace:decoded.config.workspace,computePolicy:decoded.config.computePolicy,computePolicies:decoded.config.computePolicies,defaultComputeNode:decoded.config.defaultComputeNode};
         }
         if(action==='import'){
           const record=previews.get(b.previewToken);

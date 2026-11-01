@@ -10,6 +10,7 @@ import {createJobManagement} from '../packages/control/job-management.mjs';
 import {createServices} from '../packages/control/services.mjs';
 import {startHostControl} from '../packages/control/server.mjs';
 import {jobTimestamp,selectJobs} from '../packages/control/web/operations.js';
+import {viewName} from '../packages/control/web/shell.js';
 
 const id='b'.repeat(32),unknown='c'.repeat(32),bytes=Buffer.from('任务结果\n'),sha=crypto.createHash('sha256').update(bytes).digest('hex');
 const temporary=()=>fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-ops-'));
@@ -22,6 +23,8 @@ test('task filters handle worker epoch seconds, ISO records and unknown outcomes
   assert.deepEqual(selectJobs(rows,{project:'a',search:'TRAIN'}).map(j=>j.id),['old']);
   assert.deepEqual(selectJobs(rows,{filter:'unknown'}).map(j=>j.id),['unknown']);
   assert.equal(rows[0].id,'old');
+  assert.deepEqual(selectJobs([{id:'a',node:'one'},{id:'b',node:'two'}],{node:'two'}).map(j=>j.id),['b']);
+  assert.equal(viewName('#servers'),'servers');assert.equal(viewName('#remote'),'remote');assert.equal(viewName('#task-center'),'tasks');assert.equal(viewName('#invalid'),'overview');
 });
 async function upstream({manifestHash=true}={}){
   const calls=[],server=http.createServer(async(req,res)=>{

@@ -176,6 +176,11 @@ print(json.load(urllib.request.urlopen(request)))
 
 ## Access 与 Tunnel
 
+本机面板左侧“远程访问”现已提供域名、邮箱、Audience 和 Tunnel 设置，保存立即应用。
+配置已有云端入口及验收步骤见 [REMOTE-ACCESS.md](REMOTE-ACCESS.md)。该页不会创建
+云端资源；公网登录和本机源站检查分别记录。多服务器页面与登记见
+[MULTI-SERVER.md](MULTI-SERVER.md)。
+
 远程入口仍在 Windows 上运行。为已有独立 Tunnel 增加：
 
 ```json

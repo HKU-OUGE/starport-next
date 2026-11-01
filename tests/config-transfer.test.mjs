@@ -21,6 +21,21 @@ function fixture(t){
   return {dir,file:path.join(dir,'control.json')};
 }
 
+test('multi-server encrypted export keeps separate connections, policies, names and default selection',async t=>{
+  const {dir,file}=fixture(t),host=JSON.parse(fs.readFileSync(file));delete host.workerComputeFile;
+  const worker=JSON.parse(fs.readFileSync(path.join(dir,'worker.json')));worker.limits={cpus:133,memory_gib:1016,gpus:0,timeout:3600,parallel:null};
+  fs.writeFileSync(path.join(dir,'cpu-worker.json'),JSON.stringify(worker));
+  host.computeNodes=[{id:'primary',name:'GPU server',url:'http://127.0.0.1:19091',tokenFile:'key',workerComputeFile:'worker.json'},
+    {id:'cpu-1',name:'CPU server',url:'http://127.0.0.1:19092',tokenFile:'key',workerComputeFile:'cpu-worker.json'}];host.defaultComputeNode='cpu-1';
+  fs.writeFileSync(file,JSON.stringify(host));
+  const transfer=createConfigurationTransfer(path.join(dir,'state'),file),exported=await transfer.handle('export',{source:'current',includeSecrets:true,password});
+  const decoded=await decodeBundle(exported.bundle,password);
+  assert.equal(decoded.config.defaultComputeNode,'cpu-1');assert.equal(decoded.config.nodes[1].name,'CPU server');assert.equal(decoded.config.computePolicies['cpu-1'].gpus,0);assert.equal(decoded.config.computePolicies.primary.gpus,8);
+  assert.ok(decoded.privateValues['secret://compute-primary']);assert.ok(decoded.privateValues['secret://compute-cpu-1']);
+  const template=snapshotControl(file).value;assert.deepEqual(template.privateValues,{});assert.equal(template.config.nodes.length,2);
+  const p=await transfer.handle('preview',{bundle:exported.bundle,password});assert.equal(p.computePolicies['cpu-1'].parallel,null);assert.equal(p.defaultComputeNode,'cpu-1');
+});
+
 test('current installation template omits private identities; encrypted backup preserves intent and referenced secrets',async t=>{
   const {file}=fixture(t),plain=snapshotControl(file).value;
   assert.deepEqual(plain.privateValues,{});assert.equal(plain.config.computePolicy.parallel,null);assert.equal(plain.config.workspace.wslg,true);

@@ -14,6 +14,8 @@ Windows/WSL2 control plane with optional WSLg clients. Consult
 - Windows control plane and WSL2 projects: [WINDOWS-HOST.md](docs/WINDOWS-HOST.md).
 - Independent remote compute and Claude task usage: [COMPUTE.md](docs/COMPUTE.md).
 - Windows login startup and owned service supervision: [SERVICES.md](docs/SERVICES.md).
+- Multiple compute nodes and fixed job ownership: [MULTI-SERVER.md](docs/MULTI-SERVER.md).
+- Local domain/email configuration and public acceptance: [REMOTE-ACCESS.md](docs/REMOTE-ACCESS.md).
 
 Keep the operator control plane outside the whole-agent workspace. A native
 Desktop adapter must connect to a scoped SSH/SFTP endpoint inside that boundary.

@@ -1,0 +1,62 @@
+{
+  "checkedOn": "2026-11-01",
+  "platform": "windows-host-wsl2",
+  "liveCompute": {
+    "physicalServers": 2,
+    "legacyPrimaryHistoryPreserved": true,
+    "legacyWorkerProcessPreserved": true,
+    "additionalCpuWorkerInstalledIndependently": true,
+    "archiveChecksumsVerified": true,
+    "strictHostKeyVerified": true,
+    "defaultNode": "primary",
+    "perNodeMcpSubmissionLogsDownload": true,
+    "eachNodeCpuAffinityEnforced": true,
+    "eachNodeFilesystemAndNetworkProbePassed": true,
+    "allAcceptanceJobsReleased": true,
+    "pauseBlocksOnlyNewSelectedNodeJobs": true,
+    "otherNodeRemainsAvailable": true,
+    "selectedNodeCancellationReleased": true,
+    "configuredParallelCap": null
+  },
+  "workspace": {
+    "runtimeUpdatedAndBoundaryReverified": true,
+    "mcpCapabilityFileFallbackVerified": true,
+    "projectGuidanceUpdated": true,
+    "desktopMcpConfigurationUpdated": true,
+    "officialAccountLoginVerified": false,
+    "desktopAuthenticatedChatVerified": false,
+    "additionalModelSpend": false
+  },
+  "panel": {
+    "sidebarAndSeparateViewsRendered": true,
+    "serverToTaskFilterVerified": true,
+    "domainEmailSettingsRendered": true,
+    "mobileMenuVerified": true,
+    "mobileViewportWidth": 390,
+    "twoNodeTemplateAndEncryptedPreviewVerified": true
+  },
+  "remoteAccess": {
+    "syntheticLiveApplyDisableRollbackAndCsrfTestsPassed": true,
+    "tokenRedactionTestPassed": true,
+    "localCookieCannotAuthenticatePublicHost": true,
+    "productionDomainConfigured": false,
+    "publicEmailLoginVerified": false,
+    "cloudProvisioningImplemented": false
+  },
+  "services": {
+    "currentUserLoginStartupRegistered": true,
+    "bothWorkerServicesRunning": true,
+    "unicodeConfigOnWindowsPowerShell5Verified": true,
+    "actualReloginVerified": false,
+    "coldBootVerified": false
+  },
+  "tests": {
+    "windowsNode": { "passed": 83, "skipped": 3, "failed": 0 },
+    "wslNode": { "passed": 85, "skipped": 1, "failed": 0 },
+    "linuxPython": { "passed": 20, "failed": 0 },
+    "setupSkillValidated": true,
+    "sourceAuditPassed": true
+  },
+  "externalDependencyMounts": "design-only-awaiting-selected-sources",
+  "scope": "sanitized-summary-not-a-portable-runtime-authorization"
+}

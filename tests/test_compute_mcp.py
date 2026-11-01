@@ -46,18 +46,20 @@ class ComputeMcpTests(unittest.TestCase):
     def test_submit_inline_and_local_inputs_without_shell(self):
         (self.root / 'config.json').write_text('{}')
         with patch.object(self.compute, 'request', return_value={'id': 'a' * 32}) as request:
-            result = self.compute.call('compute_submit', {'entry': 'main.py', 'files': {'main.py': "print('ok')"}, 'local_files': ['config.json'], 'cpus': 1, 'gpus': 0, 'memory_gib': 2})
+            result = self.compute.call('compute_submit', {'node': 'primary', 'entry': 'main.py', 'files': {'main.py': "print('ok')"}, 'local_files': ['config.json'], 'cpus': 1, 'gpus': 0, 'memory_gib': 2})
             self.assertEqual(result['id'], 'a' * 32)
             route, payload = request.call_args.args
             self.assertEqual(route, '/jobs')
             self.assertEqual(base64.b64decode(payload['files']['main.py']), b"print('ok')")
             self.assertNotIn('local_files', payload)
+            self.assertEqual(payload['node'], 'primary')
 
     def test_invalid_inputs_never_reach_compute(self):
         with patch.object(self.compute, 'request') as request:
             for args in [{'entry': '../x', 'files': {'../x': 'x'}}, {'entry': 'x', 'files': {'x': 'x'}, 'ssh': 'host'},
                          {'entry': 'x', 'files': {'x': 'x'}, 'cpus': True}, {'entry': 'x', 'local_files': ['/home/agent/.claude.json']},
-                         {'entry': 'missing', 'files': {'x': 'x'}}, {'entry': 'x', 'files': {'x': 'x'}, 'gpus': -1}]:
+                         {'entry': 'missing', 'files': {'x': 'x'}}, {'entry': 'x', 'files': {'x': 'x'}, 'gpus': -1},
+                         {'entry': 'x', 'files': {'x': 'x'}, 'node': '../host'}]:
                 with self.assertRaises((ValueError, OSError)):
                     self.compute.call('compute_submit', args)
             request.assert_not_called()

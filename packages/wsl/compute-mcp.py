@@ -32,10 +32,10 @@ def tool(name, description, schema, readonly=False, idempotent=False):
 
 TOOLS = [
     tool('compute_guide', 'Read the project remote-compute workflow and constraints before submitting a task.', obj(), True),
-    tool('compute_health', 'Check actual CPU, GiB, GPU capacity and configured ceilings. This does not reserve resources.', obj(), True),
+    tool('compute_health', 'List servers by node ID, readiness and individual CPU/GiB/GPU limits. Inspect nodes before submission; aggregate capacity cannot be requested as one job.', obj(), True),
     tool('compute_jobs', 'List this project\'s jobs, including unknown submissions. Reconcile before any retry.', obj(), True),
     tool('compute_submit', 'Submit ONE remote isolated Python/Bash job. Returns a job ID; save it immediately. Never retry an unknown outcome. Inputs appear in remote /workspace; write artifacts under /output. No SSH or host execution.',
-         obj({'entry': STRING, 'files': {'type': 'object', 'additionalProperties': STRING},
+         obj({'entry': STRING, 'node': {'type': 'string', 'pattern': '^[a-z][a-z0-9-]{0,47}$'}, 'files': {'type': 'object', 'additionalProperties': STRING},
               'local_files': {'type': 'array', 'items': STRING, 'maxItems': 16},
               'args': {'type': 'array', 'items': STRING, 'maxItems': 128},
               'language': {'type': 'string', 'enum': ['python', 'bash']},

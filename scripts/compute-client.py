@@ -35,6 +35,7 @@ def main():
     submit.add_argument('--cpus',type=int,default=1);submit.add_argument('--memory-gib',type=int,default=2)
     submit.add_argument('--gpus',type=int,default=0);submit.add_argument('--timeout',type=int,default=120)
     submit.add_argument('--language',choices=['python','bash'],default='python')
+    submit.add_argument('--node',help='Compute server ID from health.nodes')
     submit.add_argument('--arg',action='append',default=[])
     for name in ['status','logs','cancel','download']:
         child=sub.add_parser(name);child.add_argument('job')
@@ -50,7 +51,7 @@ def main():
             if not file.is_file() or file.stat().st_size>16*1024*1024:raise RuntimeError('invalid_job_file')
             files[file.as_posix()]=base64.b64encode(file.read_bytes()).decode()
         result=request('/jobs',{'entry':pathlib.Path(a.entry).as_posix(),'files':files,'args':a.arg,
-            'cpus':a.cpus,'memory_gib':a.memory_gib,'gpus':a.gpus,'timeout':a.timeout,'language':a.language})
+            'cpus':a.cpus,'memory_gib':a.memory_gib,'gpus':a.gpus,'timeout':a.timeout,'language':a.language,**({'node':a.node} if a.node else {})})
     else:
         import re
         if not re.fullmatch('[a-f0-9]{32}',a.job):raise RuntimeError('invalid_job_id')

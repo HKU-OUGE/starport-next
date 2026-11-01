@@ -1,26 +1,31 @@
 param([Parameter(Mandatory=$true)][string]$Manifest,[switch]$Once)
 $ErrorActionPreference='Stop'
-$m=Get-Content -LiteralPath $Manifest -Raw | ConvertFrom-Json
+$m=Get-Content -LiteralPath $Manifest -Raw -Encoding UTF8 | ConvertFrom-Json
 $repo=Split-Path $PSScriptRoot -Parent
 if ($m.format -ne 'starport-user-services' -or $m.version -ne 1 -or $m.repo -ne $repo -or $m.id -notmatch '^[a-f0-9]{16}$' -or [IO.Path]::GetFullPath($Manifest) -ne (Join-Path $m.state 'services-manifest.json')) { throw 'invalid_service_manifest' }
 $mutex=[Threading.Mutex]::new($false,('Local\StarportNext-'+$m.id))
 try { $acquired=$mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $acquired=$true }
 if (-not $acquired) { $mutex.Dispose(); exit 0 }
-$settings=Get-Content -LiteralPath $m.config -Raw | ConvertFrom-Json
+$settings=Get-Content -LiteralPath $m.config -Raw -Encoding UTF8 | ConvertFrom-Json
 $base=Split-Path $m.config -Parent
 $record=Join-Path $m.state 'services.json'
 $startedAt=[datetime]::UtcNow.ToString('o')
 $logDir=Join-Path $m.state 'service-logs'
 $null=New-Item -ItemType Directory -Path $logDir -Force
 $services=@()
-if ($settings.workerComputeFile) {
-    $workerConfig=[IO.Path]::GetFullPath((Join-Path $base $settings.workerComputeFile))
+$workerNodes=@()
+if ($settings.workerComputeFile) { $workerNodes+=@{id='primary';serviceId='compute';workerComputeFile=$settings.workerComputeFile} }
+if ($settings.computeNodes) { $workerNodes+=@($settings.computeNodes | Where-Object workerComputeFile) }
+foreach ($workerNode in $workerNodes) {
+    if ($workerNode.id -notmatch '^[a-z][a-z0-9-]{0,47}$') { throw 'invalid_compute_node' }
+    $workerConfig=[IO.Path]::GetFullPath((Join-Path $base $workerNode.workerComputeFile))
     if (-not $workerConfig.StartsWith($base+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw 'relative_worker_configuration_required' }
-    $w=Get-Content -LiteralPath $workerConfig -Raw | ConvertFrom-Json
+    $w=Get-Content -LiteralPath $workerConfig -Raw -Encoding UTF8 | ConvertFrom-Json
     $workerBase=Split-Path $workerConfig -Parent
-    $services+=@{id='compute';entry=(Join-Path $repo 'scripts\start-worker-compute.mjs');config=$workerConfig;state=[IO.Path]::GetFullPath((Join-Path $workerBase $w.state));port=[int]$w.port;proxy=[IO.Path]::GetFullPath((Join-Path $workerBase $w.proxyBinary))}
+    $services+=@{id=$(if($workerNode.serviceId){$workerNode.serviceId}else{'compute-'+$workerNode.id});entry=(Join-Path $repo 'scripts\start-worker-compute.mjs');config=$workerConfig;state=[IO.Path]::GetFullPath((Join-Path $workerBase $w.state));port=[int]$w.port;proxy=[IO.Path]::GetFullPath((Join-Path $workerBase $w.proxyBinary))}
 }
 $services+=@{id='control';entry=(Join-Path $repo 'bin\starport.mjs');config=$m.config;state=$m.state;port=$(if($settings.port){[int]$settings.port}else{18884});proxy=$(if($settings.proxyBinary){[IO.Path]::GetFullPath((Join-Path $base $settings.proxyBinary))}else{$null})}
+if (@($services.port | Sort-Object -Unique).Count -ne $services.Count -or @($services.state | Sort-Object -Unique).Count -ne $services.Count) { throw 'duplicate_service_port_or_state' }
 $nextAttempt=@{}
 function Has-Argument($line,$value) {
     $escaped=[regex]::Escape($value)
@@ -41,7 +46,7 @@ function Ensure-Service($s,$processes,$listeners) {
     $nextAttempt[$s.id]=[datetime]::UtcNow.AddSeconds(30)
     $lock=Join-Path $s.state 'control.lock'
     if ($s.id -eq 'control' -and (Test-Path -LiteralPath $lock)) {
-        $old=Get-Content -LiteralPath $lock -Raw | ConvertFrom-Json
+        $old=Get-Content -LiteralPath $lock -Raw -Encoding UTF8 | ConvertFrom-Json
         if ($old.pid -isnot [int] -and $old.pid -isnot [long]) { throw 'invalid_control_lock' }
         if ($processes | Where-Object ProcessId -eq $old.pid) { throw 'control_lock_requires_reconciliation' }
         Remove-Item -LiteralPath $lock

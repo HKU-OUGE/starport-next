@@ -26,6 +26,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/register-startup.ps1
 { "workerComputeFile": "worker-compute.json" }
 ```
 
+多服务器在 `computeNodes` 每个条目内填写 `workerComputeFile`，见
+[MULTI-SERVER.md](MULTI-SERVER.md)。每个 worker 使用不同端口和状态目录；守护独立
+检查、接管和恢复各节点。旧配置保留 `compute` 服务 ID，多节点使用 `compute-ID`。
+修改节点列表后需重启守护以重新读取配置；原有匹配的 worker 会被接管。
+
 守护程序每十秒检查进程和本机监听端口。只接管与本部署 Node、入口、配置和状态路径
 匹配的进程；端口属于其他进程时报告冲突，不终止占用者。启动失败后按三十秒退避重试，
 只有已确认父进程退出的本部署残留代理才允许清理。互斥锁避免重复守护程序。
