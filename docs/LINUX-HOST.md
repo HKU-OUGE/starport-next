@@ -59,7 +59,7 @@ sudo apt-get install --no-install-recommends xpra xvfb xauth python3-pil
 
 在首次 `linux install` 前设置 `"seamless": true`，以便同时安装虚拟机内的 Xpra 服务。已安装的虚拟机也可在设为 `true` 后重新执行 `linux install` 补装，须先关闭本安装项目应用。需要本机 X11 或 XWayland 和有效的显示授权；无 XWayland 的纯 Wayland 会话暂不支持。
 
-工作区内使用独立 Xpra/Xvfb；宿主只运行受限的画面客户端。传输经过现有加密控制通道，不开放 Xpra 公网端口。自动剪贴板、文件传输、打印、音频、摄像头、宿主 URL 打开均关闭。文件使用面板或项目文件夹入口。
+工作区内使用独立 Xpra/Xvfb；宿主只运行受限的画面客户端。传输经过现有加密控制通道，不开放 Xpra 公网端口。需要双向文字复制粘贴时，在私有配置中增加 `"seamlessClipboard": "text"`，空闲时重启本安装控制端。默认值 `"disabled"` 保留旧安装行为。启用后只同步 Ctrl+C／Ctrl+V 的文字，终端用 Ctrl+Shift+C／Ctrl+Shift+V；鼠标选区、图片、HTML 和文件不通过此通道传递。文字保持原样，不自动转换简繁体。文件、打印、音频、摄像头与宿主 URL 打开继续关闭；文件使用面板或项目文件夹入口。
 
 选择“本机 Xpra 无缝窗口”后启动应用。切换到网页桌面前先关闭该项目的图形应用，避免两个显示入口争用同一客户端。无缝显示需要实际桌面环境验收；安装成功不代表官方账号登录已经完成。
 

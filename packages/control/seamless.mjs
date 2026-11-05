@@ -21,7 +21,9 @@ export function createSeamless(state,runtime,{launch=spawn,platform=process.plat
       if(platform!=='linux'||!runtime.status().seamless)throw error('seamless_authorization_required');
       if(!/^[a-z][a-z0-9-]{0,47}$/.test(workspace))throw error('invalid_workspace');
       if(!available('xpra')||!available('bwrap'))throw error('seamless_client_not_installed');
-      const old=sessions.get(workspace);if(old&&old.child.exitCode===null&&old.peers.size)return {phase:'running',display:'seamless',reused:true};
+      const clipboard=runtime.status().seamlessClipboard||'disabled';
+      if(!['disabled','text'].includes(clipboard))throw error('invalid_clipboard_mode');
+      const old=sessions.get(workspace);if(old&&old.child.exitCode===null&&old.peers.size)return {phase:'running',display:'seamless',reused:true,clipboard,fileTransfer:false};
       if(old)await disconnect(workspace);
       const socket=path.join(base,workspace+'.sock');
       if(Buffer.byteLength(socket)>100)throw error('seamless_state_path_too_long');
@@ -39,12 +41,12 @@ export function createSeamless(state,runtime,{launch=spawn,platform=process.plat
       });
       await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(socket,resolve);});fs.chmodSync(socket,0o600);
       const log=fs.openSync(path.join(base,workspace+'.log'),'a',0o600);
-      const child=launch('/usr/bin/python3',[launcher,'--socket',socket],{shell:false,stdio:['ignore','pipe',log]});fs.closeSync(log);
+      const child=launch('/usr/bin/python3',[launcher,'--clipboard',clipboard,'--socket',socket],{shell:false,stdio:['ignore','pipe',log]});fs.closeSync(log);
       const entry={server,child,peers};sessions.set(workspace,entry);
       const close=()=>{for(const peer of peers)peer.destroy();server.close();if(sessions.get(workspace)===entry)sessions.delete(workspace);};
       child.once('exit',close);child.once('error',close);
       await new Promise((resolve,reject)=>{let pending='';const timer=setTimeout(()=>{child.kill();reject(error('seamless_client_start_failed'));},20000);child.stdout.on('data',b=>{pending=(pending+b).slice(-1024);if(pending.includes('STARPORT_VIEWER_READY')){clearTimeout(timer);resolve();}});child.once('error',()=>{clearTimeout(timer);reject(error('seamless_client_start_failed'));});child.once('exit',()=>{clearTimeout(timer);reject(error('seamless_client_start_failed'));});});
-      return {phase:'running',display:'seamless',clipboard:'disabled',fileTransfer:false};
+      return {phase:'running',display:'seamless',clipboard,fileTransfer:false};
   }
   return {
     connect(workspace){if(pending.has(workspace))return pending.get(workspace);const task=connect(workspace).finally(()=>pending.delete(workspace));pending.set(workspace,task);return task;},

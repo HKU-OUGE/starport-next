@@ -9,6 +9,13 @@ if not xpra.__version__.startswith('3.1.'):
 from xpra.platform import init, set_default_name
 set_default_name('Starport')
 init()
+if '--clipboard=yes' in sys.argv:
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location('starport_clipboard', Path(__file__).with_name('xpra-clipboard.py'))
+    policy = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(policy)
+    policy.configure()
 import xpra.scripts.main as entry
 original_factory = entry.make_client
 

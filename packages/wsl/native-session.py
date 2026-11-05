@@ -51,12 +51,12 @@ if remote:
     log = open('/home/agent/.local/state/starport/display.log', 'w')
     if seamless:
         pathlib.Path('/run/user/1000/xpra').mkdir(mode=0o700,exist_ok=True)
-        # Xpra owns a private X server here. No host display, D-Bus, file transfer,
-        # clipboard, URL launching or arbitrary remote commands are available.
+        # Xpra owns a private X server. Its optional clipboard channel is text-only;
+        # no host display, D-Bus, file transfer or remote commands are available.
         display_processes.append(subprocess.Popen([
-            '/usr/bin/python3', '-c', "import runpy; from PIL import Image; Image.ANTIALIAS=getattr(Image,'ANTIALIAS',Image.Resampling.LANCZOS); runpy.run_path('/usr/bin/xpra',run_name='__main__')", 'start', ':1', '--daemon=no', '--bind-tcp=127.0.0.1:14500',
+            '/usr/bin/python3', '/opt/starport/xpra-clipboard.py', 'start', ':1', '--daemon=no', '--bind-tcp=127.0.0.1:14500',
             '--tcp-auth=none', '--socket-dir=/run/user/1000/xpra', '--html=off', '--mdns=no',
-            '--clipboard=no', '--file-transfer=no', '--printing=no', '--open-files=no',
+            '--clipboard=yes', '--clipboard-direction=both', '--file-transfer=no', '--printing=no', '--open-files=no',
             '--open-url=no', '--speaker=disabled', '--microphone=disabled', '--webcam=no',
             '--notifications=no', '--system-tray=no', '--dbus-proxy=no', '--pulseaudio=no', '--xsettings=no',
             '--start-new-commands=no', '--exit-with-client=no', '--sharing=no',

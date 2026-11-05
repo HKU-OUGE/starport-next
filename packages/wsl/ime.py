@@ -121,9 +121,9 @@ def prepare(home):
         raise ValueError('ime_configuration_symlink')
     root.mkdir(parents=True, mode=0o700, exist_ok=True)
     prefs = root / 'preferences.json'
-    settings = preferences(json.loads(prefs.read_text()) if prefs.exists() else {})
+    settings = preferences(json.loads(prefs.read_text(encoding='utf8')) if prefs.exists() else {})
     marker = root / 'managed.json'
-    old = json.loads(marker.read_text()) if marker.exists() else {}
+    old = json.loads(marker.read_text(encoding='utf8')) if marker.exists() else {}
     new = {}
     for name, value in configuration(settings).items():
         file = root / name
@@ -135,10 +135,10 @@ def prepare(home):
                 raise ValueError('ime_configuration_symlink')
         expected = configuration_hash(name, value)
         if file.exists():
-            current = configuration_hash(name, file.read_text())
+            current = configuration_hash(name, file.read_text(encoding='utf8'))
             if current != expected and current != old.get(name) and hashlib.sha256(file.read_bytes()).hexdigest() != old.get(name):
                 raise ValueError('ime_configuration_changed')
-        if not file.exists() or configuration_hash(name, file.read_text()) != expected:
+        if not file.exists() or configuration_hash(name, file.read_text(encoding='utf8')) != expected:
             atomic(file, value)
         new[name] = expected
     atomic(marker, json.dumps(new))

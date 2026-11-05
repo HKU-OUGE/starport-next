@@ -30,7 +30,7 @@ $('configuration').hidden=status.control.remote!=='local';
 viewer.update(status);inputMethod.update(status);
 const choices=['remote',...(status.runtime.wslg&&status.control.remote==='local'?['wslg']:[]),...(status.runtime.seamless&&status.control.remote==='local'?['seamless']:[])];
 if([...$('client-display').options].map(o=>o.value).join()!==choices.join()){const prior=$('client-display').value;$('client-display').replaceChildren(...choices.map(value=>{const option=el('option',{remote:'网页项目桌面',wslg:'本机 WSLg 窗口',seamless:'本机 Xpra 无缝窗口'}[value]);option.value=value;return option;}));$('client-display').value=choices.includes(prior)?prior:'remote';}
-const display=$('client-display').value,remoteDisplay=display==='remote';$('native-note').textContent={remote:'独立项目桌面',wslg:'WSLg · 共享显示与剪贴板',seamless:'Xpra · 剪贴板和文件传输关闭'}[display];
+const display=$('client-display').value,remoteDisplay=display==='remote';$('native-note').textContent={remote:'独立项目桌面',wslg:'WSLg · 共享显示与剪贴板',seamless:status.runtime.seamlessClipboard==='text'?'Xpra · 双向文字剪贴板':'Xpra · 剪贴板关闭'}[display];
 $('runtime-label').textContent=status.runtime.kind==='qemu'?'QEMU 工作区':'WSL2 工作区';$('host-kind').textContent=$('platform').textContent+' / '+(status.runtime.kind==='qemu'?'QEMU':'WSL2');
 for(const name of ['browser','desktop','terminal','login','input-test','terminal-input-test','stop'])$('native-'+name).disabled=name==='stop'?false:!report?.passed||!choices.includes(display);
 $('clients-refresh').disabled=!report?.passed||busy||sdkRunning;$('sdk-run').disabled=sdkRunning||busy||!report?.passed||!status.model?.configured;

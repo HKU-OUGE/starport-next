@@ -215,7 +215,10 @@ Read [LINUX-HOST.md](../../docs/LINUX-HOST.md). Use `setup-control.sh`, select a
 controlled subscription, and run `linux install` in a separate owned state. Do not
 reuse or rewrite a legacy live `local` VM. Ask whether optional Xpra seamless
 windows are wanted unless the session already establishes this preference.
-Clipboard, automatic file transfer and host URL opening stay disabled. Verify
+Ask whether bidirectional text clipboard sharing is wanted. With approval, set
+`seamlessClipboard: "text"`; otherwise keep `"disabled"`. Existing authorization
+applies without asking again. Explain that enabled projects share the host
+clipboard. Automatic file transfer and host URL opening stay disabled. Verify
 X11/XWayland support, actual app windows, web desktop and project-only SSHFS
 read/write. Do not share the host display with project programs.
 

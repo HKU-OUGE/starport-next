@@ -19,7 +19,7 @@
 
 Windows 优先采用 **主系统管理网络与服务器，WSL2 执行项目程序**。主系统可以读写项目文件，工作区不挂载 Windows 文件。已提供 Claude Code、Agent SDK、Linux Desktop 与浏览器安装入口；独立 WSLg 窗口需显式开启，并与 Windows 共享显示和剪贴板。安装与访问码窗口见 [Windows 控制端](docs/WINDOWS-HOST.md)，兼容性和待验证项见 [WSL2 评估](docs/WSL2-ASSESSMENT.md)。
 
-Linux 使用独立 QEMU 虚拟机接入同一面板，可选择网页桌面或 **Xpra 无缝窗口**；后者默认关闭剪贴板与文件传输。项目可通过文件管理器读写，宿主目录不会共享给项目。[Linux 安装与入口](docs/LINUX-HOST.md)。macOS 当前仍使用原 QEMU 命令行路线，未完成同级桌面集成。
+Linux 使用独立 QEMU 虚拟机接入同一面板，可选择网页桌面或 **Xpra 无缝窗口**；后者可开启双向文字剪贴板，文件仍通过项目入口传输。项目可通过文件管理器读写，宿主目录不会共享给项目。[Linux 安装与入口](docs/LINUX-HOST.md)。macOS 当前仍使用原 QEMU 命令行路线，未完成同级桌面集成。
 
 面板采用左侧导航，支持[多服务器](docs/MULTI-SERVER.md)分别监控、筛选任务和暂停接单。
 [远程访问页](docs/REMOTE-ACCESS.md)可设置已有 Cloudflare Access 的域名、邮箱和 Tunnel。

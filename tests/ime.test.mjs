@@ -4,7 +4,11 @@ import {EventEmitter} from 'node:events';
 import {PassThrough} from 'node:stream';
 import {spawnSync} from 'node:child_process';
 import {createProjectRuntime,publicIme} from '../packages/runtime/project.mjs';
+const python=(process.platform==='win32'?['python','python3']:['python3','python']).find(name=>{const r=spawnSync(name,['--version'],{encoding:'utf8'});return r.status===0&&/Python 3\./.test(r.stdout+r.stderr);});
 
+test('IME absent or malformed state stays unavailable',()=>{
+  for(const value of [null,'ready',false,[]])assert.equal(publicIme(value).phase,'unavailable');
+});
 test('IME status exposes only bounded state and never private bus addresses or input text',()=>{
   const r=publicIme({phase:'ready',mode:'traditional',privateBus:'unix:path=/secret',composition:'private input',error:'sensitive value',hotkey:'Shell;command'});
   assert.equal(r.phase,'ready');assert.equal(r.hotkey,'Control+space');assert.equal(r.error,null);
@@ -27,8 +31,8 @@ test('IME actions require an existing project, acknowledge its own request and r
   const request=frames.find(v=>v.app==='ime');assert.match(request.id,/^[a-f0-9]{24}$/);
   assert.equal(frames.filter(v=>v.app==='ime').length,1);r.close();
 });
-test('IME preferences preserve explicit edits, isolate XIM names and keep traditional schema first',{skip:process.platform!=='linux'},()=>{
-  const r=spawnSync('python3',['-I','-B','-c',String.raw`
+test('IME preferences preserve explicit edits, isolate XIM names and keep traditional schema first',{skip:!python},()=>{
+  const r=spawnSync(python,['-X','utf8','-I','-B','-c',String.raw`
 import importlib.util,pathlib,tempfile,json
 s=importlib.util.spec_from_file_location('ime','packages/wsl/ime.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 with tempfile.TemporaryDirectory() as d:
@@ -54,8 +58,8 @@ print('passed')
 `],{encoding:'utf8'});assert.equal(r.status,0,r.stdout+r.stderr);
 });
 
-test('IME probes never auto-activate an unconfigured daemon and absent input context is explicit',{skip:process.platform!=='linux'},()=>{
-  const r=spawnSync('python3',['-I','-B','-c',String.raw`
+test('IME probes never auto-activate an unconfigured daemon and absent input context is explicit',{skip:!python},()=>{
+  const r=spawnSync(python,['-X','utf8','-I','-B','-c',String.raw`
 import importlib.util,subprocess
 from unittest.mock import patch
 s=importlib.util.spec_from_file_location('ime','packages/wsl/ime.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)

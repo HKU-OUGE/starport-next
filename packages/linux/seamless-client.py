@@ -1,7 +1,8 @@
 """Trusted display client, with neutral files/environment and no IP networking.
 
 Only the X11/XWayland display and one owned Unix transport are visible. Project
-programs never receive the host display socket, authority, HOME or clipboard.
+programs never receive the host display socket, authority or HOME. Clipboard
+text is shared only when explicitly enabled for this viewer.
 """
 import argparse
 import os
@@ -13,7 +14,26 @@ import subprocess
 import tempfile
 
 
-def build_command(socket, etc, home, authority, display):
+def display_authority(source, destination, display):
+    # FamilyLocal records contain the host hostname. The viewer has a neutral
+    # hostname, so scope a FamilyWild copy to this one display and cookie only.
+    result = subprocess.run(['/usr/bin/xauth', '-f', str(source), 'nlist', display],
+                            capture_output=True, text=True, timeout=5)
+    records = result.stdout.splitlines()
+    if result.returncode or not records or any(not re.fullmatch(r'[0-9a-fA-F ]+', v) or len(v) < 4 for v in records):
+        raise ValueError('display_authority_required')
+    destination.touch(mode=0o600)
+    merged = subprocess.run(['/usr/bin/xauth', '-f', str(destination), 'nmerge', '-'],
+                            input='\n'.join('ffff' + v[4:] for v in records) + '\n',
+                            capture_output=True, text=True, timeout=5)
+    if merged.returncode:
+        raise ValueError('display_authority_required')
+    return destination
+
+
+def build_command(socket, etc, home, authority, display, clipboard="disabled"):
+    if clipboard not in ("disabled", "text"):
+        raise ValueError("invalid_clipboard_mode")
     if not re.fullmatch(r':[0-9]+(?:\.[0-9]+)?', display):
         raise ValueError('local_x11_or_xwayland_required')
     screen = display.split('.')[0][1:]
@@ -34,7 +54,8 @@ def build_command(socket, etc, home, authority, display):
                 '--tmpfs', '/tmp', '--dir', '/tmp/.X11-unix', '--dir', '/run/display',
                 '--ro-bind', str(x11), str(x11), '--ro-bind', str(authority), '/run/display/Xauthority',
                 '--dir', '/run/bridge', '--ro-bind', str(socket), '/run/bridge/xpra.sock',
-                '--dir', '/opt/starport-viewer', '--ro-bind', str(Path(__file__).with_name('xpra-entry.py')), '/opt/starport-viewer/entry.py']
+                '--dir', '/opt/starport-viewer', '--ro-bind', str(Path(__file__).with_name('xpra-entry.py')), '/opt/starport-viewer/entry.py',
+                '--ro-bind', str(Path(__file__).parent.parent / 'wsl' / 'xpra-clipboard.py'), '/opt/starport-viewer/xpra-clipboard.py']
     environment = {'HOME': '/home/viewer', 'USER': 'viewer', 'LOGNAME': 'viewer',
                    'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8', 'TZ': 'Asia/Taipei',
                    'DISPLAY': display, 'XAUTHORITY': '/run/display/Xauthority', 'GDK_BACKEND': 'x11',
@@ -42,7 +63,8 @@ def build_command(socket, etc, home, authority, display):
     for key, value in environment.items():
         command += ['--setenv', key, value]
     command += ['--', '/usr/bin/python3', '/opt/starport-viewer/entry.py', 'attach', 'socket:/run/bridge/xpra.sock',
-                '--clipboard=no', '--file-transfer=no', '--printing=no', '--open-files=no',
+                '--clipboard=' + ('yes' if clipboard == 'text' else 'no'), '--clipboard-direction=both',
+                '--local-clipboard=CLIPBOARD', '--remote-clipboard=CLIPBOARD', '--file-transfer=no', '--printing=no', '--open-files=no',
                 '--open-url=no', '--speaker=disabled', '--microphone=disabled', '--webcam=no',
                 '--notifications=no', '--system-tray=no', '--opengl=no', '--tray=no',
                 '--username=viewer', '--keyboard-layout=us', '--dpi=96', '--desktop-scaling=off', '--remote-logging=no', '--mmap=no', '--xsettings=no']
@@ -52,6 +74,7 @@ def build_command(socket, etc, home, authority, display):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--socket', required=True)
+    parser.add_argument('--clipboard', choices=['disabled', 'text'], default='disabled')
     args = parser.parse_args()
     socket = Path(args.socket)
     st = socket.lstat()
@@ -76,7 +99,8 @@ def main():
         shutil.copyfile('/usr/share/zoneinfo/Asia/Taipei', etc / 'localtime')
         if Path('/etc/fonts').is_dir():
             shutil.copytree('/etc/fonts', etc / 'fonts', symlinks=False)
-        result = subprocess.run(build_command(socket, etc, home, authority, display))
+        authority = display_authority(authority, root / 'Xauthority', display)
+        result = subprocess.run(build_command(socket, etc, home, authority, display, args.clipboard))
         return result.returncode
 
 

@@ -5,6 +5,7 @@ import {pipeBridge} from '../control/pipe-bridge.mjs';
 import {runtimeBundle} from './project-bundle.mjs';
 
 export function publicIme(value={}){
+  if(!value||typeof value!=='object'||Array.isArray(value))value={};
   const phases=['not_started','unavailable','preparing','ready','failed','reconnecting','stopped'];
   return {phase:phases.includes(value.phase)?value.phase:'unavailable',
     mode:['traditional','english','simplified'].includes(value.mode)?value.mode:null,
@@ -14,7 +15,8 @@ export function publicIme(value={}){
     error:/^(?:ime|invalid_ime)_[a-z_]{1,80}$/.test(value.error||'')?value.error:null};
 }
 
-export function createProjectRuntime(state, { launch, destinations, capabilities, kind="wsl2", installed=()=>false, runtimeDigest, wslg=false, seamless=false, onState=()=>{} } = {}) {
+export function createProjectRuntime(state, { launch, destinations, capabilities, kind="wsl2", installed=()=>false, runtimeDigest, wslg=false, seamless=false, seamlessClipboard="disabled", onState=()=>{} } = {}) {
+  if(!['disabled','text'].includes(seamlessClipboard))throw error('invalid_clipboard_mode');
   const active=new Map(),nativeStates=new Map(),viewers=new Map();const reports=new Map(),imePending=new Map();let alive=true;
   if(typeof launch!=='function')throw error('workspace_transport_required');
   const spawnRunner=launch;
@@ -70,7 +72,7 @@ export function createProjectRuntime(state, { launch, destinations, capabilities
           const line=pending.slice(0,index);pending=pending.slice(index+1);
           try{const value=JSON.parse(line);
             if(value.kind==='native_ready'){nativeStates.set(workspace,{phase:'running',display,apps:{},ime:publicIme(value.ime)});clearTimeout(timer);readyResolve();}
-            if(value.kind==='native_ime_result'){const p=imePending.get(value.id);if(p&&p.workspace===workspace){clearTimeout(p.timer);imePending.delete(value.id);if(value.error)p.reject(error(/^(?:ime|invalid_ime)_[a-z_]+$/.test(value.error)?value.error:'ime_action_failed'));else{const result=publicIme(value.ime),state=nativeStates.get(workspace);if(state)state.ime=result;p.resolve(result);}}}
+            if(value.kind==='native_ime_result'){const p=imePending.get(value.id);if(p&&p.workspace===workspace){clearTimeout(p.timer);imePending.delete(value.id);if(value.error)p.reject(error(/^(?:ime|invalid_ime)_[a-z_]{1,80}$/.test(value.error)?value.error:'ime_action_failed'));else{const result=publicIme(value.ime),state=nativeStates.get(workspace);if(state)state.ime=result;p.resolve(result);}}}
             if(value.kind==='native_state'){const apps=Object.fromEntries(Object.entries(value.apps||{}).filter(([k,v])=>['browser','desktop','terminal','login','input-test','terminal-input-test'].includes(k)&&['running','stopped'].includes(v)));nativeStates.set(workspace,{phase:'running',display,apps,ime:publicIme(value.ime)});}
           }catch{}
         }
@@ -118,7 +120,7 @@ export function createProjectRuntime(state, { launch, destinations, capabilities
         session.bridge.close();
       });
     },
-    status:()=>({kind,installed:installed(),wslg,seamless,displays:['remote',...(wslg?['wslg']:[]),...(seamless?['seamless']:[])],clipboard:wslg?'shared-with-windows':'not-shared',native:[...nativeStates].map(([workspace,value])=>({workspace,...value})),active:[...active].map(([key,v])=>({workspace:key.split(':')[0],operation:key.split(':')[1],startedAt:v.startedAt})),reports:[...reports].map(([workspace,receipt])=>({workspace,...receipt,passed:receipt.passed&&receipt.runtimeDigest===digest()&&Date.now()-Date.parse(receipt.checkedAt)<=86400000}))}),
+    status:()=>({kind,installed:installed(),wslg,seamless,seamlessClipboard,displays:['remote',...(wslg?['wslg']:[]),...(seamless?['seamless']:[])],clipboard:wslg?'shared-with-windows':seamless&&seamlessClipboard==='text'?'bidirectional-text':'not-shared',native:[...nativeStates].map(([workspace,value])=>({workspace,...value})),active:[...active].map(([key,v])=>({workspace:key.split(':')[0],operation:key.split(':')[1],startedAt:v.startedAt})),reports:[...reports].map(([workspace,receipt])=>({workspace,...receipt,passed:receipt.passed&&receipt.runtimeDigest===digest()&&Date.now()-Date.parse(receipt.checkedAt)<=86400000}))}),
     close(){alive=false;for(const {bridge} of active.values())bridge.close();}
   };
 }
