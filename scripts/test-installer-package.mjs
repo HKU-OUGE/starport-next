@@ -11,6 +11,13 @@ import {defaultFeatures} from '../packages/installer/plan.mjs';
 import {payload} from '../packages/installer/owned-files.mjs';
 import {copyManager} from '../packages/installer/manager-copy.mjs';
 
+const report=process.env.STARPORT_INSTALLER_TEST_REPORT;
+if(report){
+ const record=(kind,values)=>fs.appendFileSync(report,JSON.stringify({kind,values})+'\n');
+ for(const kind of ['log','error']){const original=console[kind];console[kind]=(...values)=>{record(kind,values);original(...values);};}
+ process.on('uncaughtException',e=>{record('fatal',[e.stack||String(e)]);process.exit(1);});
+ process.on('unhandledRejection',e=>{record('fatal',[e?.stack||String(e)]);process.exit(1);});
+}
 const args=process.argv.slice(2);
 assert.equal(args.length,2);assert.equal(args[0],'--source');
 const source=path.resolve(args[1]);await payload(source);
@@ -39,7 +46,7 @@ try{
   assert.equal(fs.existsSync(path.join(root,'app')),false);
   console.log(JSON.stringify({platform:process.platform,packageLifecycle:'passed',install:true,repair:true,preserveData:true,reinstall:true,removeOwnedData:true,administratorRequired:false}));
 }catch(e){
-  console.error(JSON.stringify({packageLifecycle:'failed',code:e.code||e.message}));
+  console.error(JSON.stringify({packageLifecycle:'failed',code:e.code||e.message,stack:e.stack}));
   // Private diagnostic logs stay in the runner's temporary test directory.
   const log=path.join(root,'private/setup/install.log');
   if(fs.existsSync(log))console.error(fs.readFileSync(log,'utf8').slice(-8000));

@@ -45,8 +45,12 @@ jobs:
         shell: pwsh
         run: |
           $exe=(Get-ChildItem dist/*.exe).FullName
+          $p=Start-Process -FilePath $exe -ArgumentList '/S','/VERIFY' -Wait -PassThru
+          if($p.ExitCode -ne 0){throw ('Installer payload verification failed: '+$p.ExitCode)}
+          $env:STARPORT_INSTALLER_TEST_REPORT=Join-Path $env:RUNNER_TEMP 'package-test.jsonl'
           $p=Start-Process -FilePath $exe -ArgumentList '/S','/SMOKE' -Wait -PassThru
-          if($p.ExitCode -ne 0){throw 'Installer payload verification failed'}
+          if(Test-Path $env:STARPORT_INSTALLER_TEST_REPORT){Get-Content $env:STARPORT_INSTALLER_TEST_REPORT}
+          if($p.ExitCode -ne 0){throw ('Installer lifecycle failed: '+$p.ExitCode)}
       - uses: actions/upload-artifact@v4
         with:
           name: installer-${{ runner.os }}
