@@ -225,3 +225,13 @@ instance; use `start` only after that instance is safely stopped. Verify units,
 ownership and failure recovery separately from a real logout/cold boot. Register
 project shortcuts only for installed display choices. No model login, remote job
 restart or paid call is implied by installing desktop packages.
+
+## Project input method
+
+Read [INPUT-METHODS.md](../../docs/INPUT-METHODS.md). Full client installs include
+Fcitx5/Rime; existing installs use the owned idle runtime update and input-method
+installer. Do not connect a host input bus, copy a personal dictionary, replace
+WSLg system components or stop all WSL distributions. Verify candidates and actual
+Traditional/English/explicit Simplified commits in all three apps and two projects.
+`verify-ime` is a read-only preflight, not proof of keyboard input. Report Windows
+and Linux evidence separately. Preserve running work and account sessions.

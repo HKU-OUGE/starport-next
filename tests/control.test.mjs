@@ -105,7 +105,7 @@ test('control rejects stale runtime verification before SDK or native launch',as
   const status=await(await fetch(s.url+'api/status',{headers})).json();headers['x-csrf-token']=status.csrf;
   s.runtime.reports.set('main',{passed:true,checkedAt:new Date().toISOString(),runtimeDigest:'previous-runtime'});
   assert.equal(s.runtime.status().reports[0].passed,false);
-  for(const operation of ['sdk','native','clients']){
+  for(const operation of ['sdk','native','clients','ime']){
     const r=await fetch(s.url+'api/workspaces/main/'+operation,{method:'POST',headers,body:JSON.stringify({app:'browser',prompt:'test'})});
     assert.equal(r.status,403);assert.equal((await r.json()).error,'workspace_verification_required');
   }

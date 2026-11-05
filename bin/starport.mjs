@@ -55,6 +55,8 @@ const help = `Starport Next — 配置与部署规划工具
   starport linux services enable --state private/control --config private/host-control.json
   starport linux shortcuts register --state private/control --seamless
   starport wsl install --state private/wsl --rootfs ubuntu.tar.gz --sha256 SHA256
+  starport linux ime-install --config private/host-control.json
+  starport wsl ime-install --state private/wsl --config private/host-control.json
   starport wsl clients-install --state private/wsl --config private/host-control.json
   starport wsl clients-configure --state private/wsl
   starport wsl remote-display-install --state private/wsl --config private/host-control.json
@@ -137,9 +139,9 @@ async function main() {
   if(command==='linux'){
     if(process.platform!=='linux')fail('linux_host_required');
     const action=args.shift();
-    if(['install','clients-install','update-runtime'].includes(action)){
+    if(['install','clients-install','ime-install','update-runtime'].includes(action)){
       const a=argumentsFor(args,['--config','--cpus','--memory-mib','--disk-gib']);
-      return show(await installLinuxProject(loadControlOptions(required(a,'--config')),{update:action==='update-runtime',repairClients:action==='clients-install',onProgress:show,
+      return show(await installLinuxProject(loadControlOptions(required(a,'--config')),{update:action==='update-runtime',repairClients:['clients-install','ime-install'].includes(action),imeOnly:action==='ime-install',onProgress:show,
         cpus:Number(a['--cpus']||2),memoryMiB:Number(a['--memory-mib']||4096),diskGiB:Number(a['--disk-gib']||16)}));
     }
     if(action==='services'){
@@ -159,9 +161,9 @@ async function main() {
     if(action==='clients-configure'){
       const a=argumentsFor(args,['--state']);return show(await configureWslClients(required(a,'--state')));
     }
-    if(action==='clients-install'||action==='remote-display-install'){
+    if(action==='clients-install'||action==='remote-display-install'||action==='ime-install'){
       const a=argumentsFor(args,['--state','--config']);
-      return show(await installWslClients(required(a,'--state'),loadControlOptions(required(a,'--config')),{onProgress:show,remoteOnly:action==='remote-display-install'}));
+      return show(await installWslClients(required(a,'--state'),loadControlOptions(required(a,'--config')),{onProgress:show,remoteOnly:action==='remote-display-install',imeOnly:action==='ime-install'}));
     }
     if(action==='update-runtime'){
       const a=argumentsFor(args,['--state']);return show(await updateWslRuntime(required(a,'--state')));

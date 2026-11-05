@@ -55,7 +55,7 @@ export async function createQemuRuntime(state,options={}){
 
 // The only administrative SSH commands install verified public runtime sources
 // in an owned VM. No model-provided command is accepted at this boundary.
-export async function installProjectVm(state,{proxyPort,onProgress=()=>{},clients=true,seamless=false,update=false,repairClients=false,...resources}={}){
+export async function installProjectVm(state,{proxyPort,onProgress=()=>{},clients=true,seamless=false,update=false,repairClients=false,imeOnly=false,...resources}={}){
   if(process.platform!=='linux')throw error('linux_control_install_required');
   if(!Number.isInteger(proxyPort)||proxyPort<1||proxyPort>65535)throw error('controlled_install_proxy_required');
   state=privateDir(state);const lock=path.join(state,'project-install.lock');
@@ -90,7 +90,8 @@ export async function installProjectVm(state,{proxyPort,onProgress=()=>{},client
     if(installed.code!==0){writePrivate(file,{...old,phase:update?'installed':'failed'});throw error('project_boundary_install_failed');}
     if(clients&&(!update||addSeamless||repairClients)){
       onProgress({phase:'installing_project_clients'});
-      const installScript=fs.readFileSync(new URL('../wsl/install-clients.sh',import.meta.url),'utf8').replaceAll('\r\n','\n');
+      const imeScript=fs.readFileSync(new URL('../wsl/install-ime.sh',import.meta.url),'utf8').replaceAll('\r\n','\n');
+      const installScript=imeOnly?imeScript:fs.readFileSync(new URL('../wsl/install-clients.sh',import.meta.url),'utf8').replaceAll('\r\n','\n')+'\n'+imeScript;
       const standard=nativeFiles(machine.host.arch);
       const files={
         '/usr/local/bin/starport-browser':wslBrowserScript(machine.host.arch),
@@ -101,12 +102,17 @@ export async function installProjectVm(state,{proxyPort,onProgress=()=>{},client
         '/opt/starport-wsl/etc/dbus-1/session.conf':'<busconfig/>\n',
       };
       const bootstrap=`import pathlib,json,sys,subprocess,fcntl\nq=json.load(sys.stdin);p=pathlib.Path('/opt/starport-wsl')\nassert (p/'owner').read_text()==q['owner']\nlock=open(p/'runtime.lock','a');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)\ntarget=pathlib.Path('/usr/local/lib/starport/agent');target.mkdir(parents=True,exist_ok=True)\nfor n,b in q['agent'].items():\n assert n in ('package.json','package-lock.json','agent.mjs','files.py')\n (target/n).write_text(b)\nenv={'PATH':'/usr/local/bin:/usr/bin:/bin','STARPORT_INSTALL_PROXY':'http://127.0.0.1:13129'}\nsubprocess.run(['/bin/bash','--noprofile','--norc','-s'],input=q['script'],text=True,env=env,check=True)\nfor name,body in q['configuration'].items():\n f=pathlib.Path(name);assert not f.is_symlink();f.parent.mkdir(parents=True,exist_ok=True);f.write_text(body);f.chmod(0o755 if name.startswith('/usr/local/bin/') else 0o644)\n`;
-      const extra=seamless?'\napt-get "${apt_options[@]}" install -y --no-install-recommends xpra xvfb xauth python3-pil\n':'';
+      const extra=seamless&&!imeOnly?'\napt-get "${apt_options[@]}" install -y --no-install-recommends xpra xvfb xauth python3-pil\n':'';
       const r=await guest(state,status.sshPort,'sudo -n /usr/bin/python3 -I -c '+quote(bootstrap),{user:'control',input:JSON.stringify({owner:receipt.owner,agent:guestFiles(machine.host.arch),configuration:files,script:installScript+extra}),timeout:1800000,boundedCapture:true,maxBytes:32768});
       fs.appendFileSync(path.join(state,'project-install.log'),r.stdout+r.stderr);
-      if(r.code!==0){writePrivate(file,{...receipt,phase:'failed'});throw error('project_clients_install_failed');}
+      if(r.code!==0){
+        // The runtime bundle has already been replaced. Keep its actual digest
+        // so an interrupted IME-only package repair can safely be retried.
+        writePrivate(file,imeOnly?{...receipt,phase:'installed',runtimeDigest:bundle.digest,runtimeFiles:Object.keys(bundle.files),clients:old.clients===true,seamless:old.seamless===true}:{...receipt,phase:'failed'});
+        throw error('project_clients_install_failed');
+      }
     }
-    receipt={...receipt,phase:'installed',runtimeDigest:bundle.digest,runtimeFiles:Object.keys(bundle.files),clients:update?old.clients:clients,seamless:addSeamless?true:update?old.seamless:seamless,verified:false};
+    receipt={...receipt,phase:'installed',runtimeDigest:bundle.digest,runtimeFiles:Object.keys(bundle.files),clients:(update||imeOnly)?old.clients:clients,seamless:addSeamless?true:(update||imeOnly)?old.seamless:seamless,verified:false};
     writePrivate(file,receipt);return {installed:true,clients:receipt.clients,seamless:receipt.seamless,verified:false};
   }finally{forward?.kill();fs.rmSync(lock,{force:true});}
 }

@@ -69,6 +69,8 @@ node bin/starport.mjs linux shortcuts register --state private/control --seamles
 
 应用菜单新增面板、访问码、浏览器、Claude Desktop 和 Claude Code。未启用无缝窗口时去掉 `--seamless`，仅注册面板与访问码入口。可用 `--workspace 项目ID` 注册其他项目。
 
+繁体拼音、English 与可选简体使用项目内输入法，安装和快捷键见 [输入法指南](INPUT-METHODS.md)。
+
 ## 文件与更新
 
 “打开项目文件夹”使用专用 SFTP 账号，其文件根目录限制在该项目，禁止 shell、端口和 Agent 转发。SSHFS 挂载位于控制状态目录的 `project-folders/项目ID`。项目不能反向访问宿主文件；文件内容本身仍由项目程序控制。

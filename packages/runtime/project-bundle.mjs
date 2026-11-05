@@ -3,7 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 const source = fileURLToPath(new URL('../wsl/', import.meta.url));
-export const bundleNames=['runner.py','guest-entry.py','native-session.py','sdk-agent.mjs','client-status.py','compute-mcp.py','configure-compute.py','COMPUTE-AGENT.md','files.py','compute-client.py'];
+export const bundleNames=['runner.py','guest-entry.py','native-session.py','ime.py','ime-check.html','sdk-agent.mjs','client-status.py','compute-mcp.py','configure-compute.py','COMPUTE-AGENT.md','files.py','compute-client.py'];
 export function runtimeBundle(){
   const files={};for(const name of bundleNames.filter(n=>!['files.py','compute-client.py'].includes(n)))files[name]=fs.readFileSync(path.join(source,name)).toString('base64');
   files['files.py']=fs.readFileSync(new URL('./guest/files.py',import.meta.url)).toString('base64');

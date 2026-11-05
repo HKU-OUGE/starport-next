@@ -1,5 +1,6 @@
 """Project-side WSLg supervisor; Windows display/clipboard sharing is explicit."""
 import json
+import importlib.util
 import os
 import pathlib
 import shutil
@@ -18,8 +19,8 @@ os.umask(0o077)
 os.environ['CLAUDE_CONFIG_DIR'] = '/home/agent/.claude-account'
 os.environ['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'] = '1'
 os.environ['BROWSER'] = '/usr/local/bin/starport-browser'
-os.environ['ELECTRON_OZONE_PLATFORM_HINT'] = 'x11' if remote else 'wayland'
-os.environ['XDG_SESSION_TYPE'] = 'x11' if remote else 'wayland'
+os.environ['ELECTRON_OZONE_PLATFORM_HINT'] = 'x11'
+os.environ['XDG_SESSION_TYPE'] = 'x11'
 os.environ['GSK_RENDERER'] = 'cairo'
 os.environ['LIBGL_ALWAYS_SOFTWARE'] = '1'
 for directory in ['.config', '.local/share/applications', '.local/state/starport', '.claude-account']:
@@ -80,6 +81,13 @@ if remote:
 
 
 
+spec = importlib.util.spec_from_file_location('starport_ime', '/opt/starport/ime.py')
+ime_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(ime_module)
+ime = ime_module.InputMethod()
+os.environ.update(ime.environment_for_apps())
+ime.start()
+
 def connect_viewer():
     def forward():
         local, control = None, None
@@ -122,9 +130,9 @@ def connect_viewer():
                 control.close()
     threading.Thread(target=forward, daemon=True).start()
 
-def report():
+def report(ime_state=None):
     with output_lock:
-        print(json.dumps({'kind': 'native_state', 'apps': {
+        print(json.dumps({'kind': 'native_state', 'ime': ime_state if ime_state is not None else ime.status(), 'apps': {
             name: 'running' if child.poll() is None else 'stopped' for name, child in apps.items()
         }}), flush=True)
 
@@ -137,10 +145,13 @@ def launch(name):
     # The remote X server otherwise defaults to white, while Claude uses a dark
     # theme. Pin Latin cell metrics too: the locale's CJK monospace fallback can
     # make ASCII terminal text appear double-spaced.
-    terminal = ['/usr/bin/xterm', '-fa', 'DejaVu Sans Mono', '-fs', '12',
+    terminal = ['/usr/bin/xterm', '-u8', '-class', 'StarportTerminal', '-xrm', '*openIm: true', '-fa', 'DejaVu Sans Mono', '-fs', '12',
                 '-bg', '#1e1e1e', '-fg', '#d4d4d4', '-cr', '#d4d4d4']
     commands = {
         'browser': ['/usr/local/bin/starport-browser', 'https://claude.ai/'],
+        'input-test': ['/usr/local/bin/starport-browser', 'file:///opt/starport/ime-check.html'],
+        'terminal-input-test': terminal + ['-T', 'Starport / Input test', '-e', '/usr/bin/python3', '-I', '-c',
+                               'import json\nprint("Offline input test: English first; Ctrl+Space for Chinese. Enter echoes text; no commands run.")\nwhile True:\n try: print(json.dumps(input("input> "),ensure_ascii=False))\n except (EOFError,KeyboardInterrupt): break'],
         'desktop': ['/usr/bin/claude-desktop', '--proxy-server=http://127.0.0.1:13128',
                     '--proxy-bypass-list=localhost;127.0.0.1;[::1]', '--disable-quic', '--disable-gpu'],
         'terminal': terminal + ['-T', 'Starport / Claude Code', '-e', '/bin/bash', '--noprofile', '--norc', '-c', 'claude; exec bash --noprofile --norc'],
@@ -148,9 +159,9 @@ def launch(name):
     }
     if name not in commands:
         raise ValueError('invalid_native_app')
-    if remote and name == 'browser':
+    if name in ('browser','input-test') and shutil.which('google-chrome-stable'):
         commands[name].insert(1, '--ozone-platform=x11')
-    if remote and name == 'desktop':
+    if name == 'desktop':
         commands[name].append('--ozone-platform=x11')
     # Diagnostics stay in the private project HOME; authentication URLs and tokens
     # must never be included in control-plane status or repository receipts.
@@ -163,14 +174,27 @@ def launch(name):
 def monitor():
     while True:
         time.sleep(2)
-        report()
+        report(ime.tick())
 
-print(json.dumps({'kind': 'native_ready'}), flush=True)
+print(json.dumps({'kind': 'native_ready', 'ime': ime.status(query=False)}), flush=True)
 threading.Thread(target=monitor, daemon=True).start()
 try:
     for line in sys.stdin:
-        launch(json.loads(line)['app'])
+        message = json.loads(line)
+        if message['app'] == 'ime':
+            result = {'kind':'native_ime_result','id':message['id']}
+            try:
+                result['ime'] = ime.action(message['action'], message.get('settings'))
+            except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+                code = str(exc)
+                result['error'] = code if code.startswith('ime_') or code.startswith('invalid_ime_') else 'ime_action_failed'
+            with output_lock:
+                print(json.dumps(result), flush=True)
+            report()
+        else:
+            launch(message['app'])
 finally:
+    ime.stop()
     for child in [*apps.values(), *display_processes]:
         if child.poll() is None:
             child.terminate()

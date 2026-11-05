@@ -10,7 +10,7 @@ import {wslArgs} from './runtime.mjs';
 import {runInstaller} from './installer-pipe.mjs';
 
 // Downloads use the controlled proxy over stdio, with no Windows inbound port.
-export async function installWslClients(state,options,{onProgress=()=>{},remoteOnly=false}={}){
+export async function installWslClients(state,options,{onProgress=()=>{},remoteOnly=false,imeOnly=false}={}){
   if(process.platform!=='win32')throw error('wsl_install_requires_windows');
   state=privateDir(state);const receipt=read(path.join(state,'wsl.json'));
   if(receipt.phase!=='installed')throw error('wsl_install_required');
@@ -25,7 +25,8 @@ export async function installWslClients(state,options,{onProgress=()=>{},remoteO
     if(!arch)throw error('unsupported_guest_architecture');
     const files=guestFiles(arch);
     const fullScript=fs.readFileSync(new URL('./install-clients.sh',import.meta.url),'utf8').replaceAll('\r\n','\n');
-    const script=remoteOnly?fullScript.split('install -d -m 0755 /etc/apt/keyrings')[0]:fullScript;
+    const imeScript=fs.readFileSync(new URL('./install-ime.sh',import.meta.url),'utf8').replaceAll('\r\n','\n');
+    const script=imeOnly?imeScript:remoteOnly?fullScript.split('install -d -m 0755 /etc/apt/keyrings')[0]:fullScript+'\n'+imeScript;
     const bootstrap=`import json,sys,pathlib,subprocess,fcntl,os
 q=json.load(sys.stdin)
 assert os.geteuid()==0 and pathlib.Path('/opt/starport-wsl/owner').read_text()==q['owner']
@@ -50,6 +51,7 @@ sys.exit(result.returncode)
     const installed=await runInstaller(receipt,bootstrap,{owner:receipt.owner,files,script},egress.proxyPort);
     writePrivate(path.join(dir,'install.log'),installed.stdout+installed.stderr);
     if(installed.code!==0)throw error('wsl_client_install_failed');
+    if(imeOnly){const result={inputMethodInstalled:true,checkedAt:new Date().toISOString()};writePrivate(path.join(dir,'status.json'),{phase:'installed',...result});return result;}
     if(remoteOnly){await configureWslClients(state);const result={remoteDisplayInstalled:true,checkedAt:new Date().toISOString()};writePrivate(path.join(dir,'status.json'),{phase:'installed',...result});return result;}
     const result={installed:true,checkedAt:new Date().toISOString(),architecture:arch,browser:arch==='x64'?'chrome':'firefox',sdkVersion:'0.3.316',loginVerified:false};
     writePrivate(path.join(state,'clients.json'),result);await configureWslClients(state);writePrivate(path.join(dir,'status.json'),{phase:'installed'});return result;

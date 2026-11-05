@@ -87,7 +87,7 @@ export async function startHostControl(state,options={}){
           await access.authenticate(req,policy);const bytes=viewerAsset(url.pathname);
           res.writeHead(200,{'content-type':'text/javascript; charset=utf-8','cache-control':'no-store'});return res.end(bytes);
         }
-        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/viewer.js','/sessions.js','/workspace-access.js','/style.css'].includes(url.pathname)){
+        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/viewer.js','/ime.js','/sessions.js','/workspace-access.js','/style.css'].includes(url.pathname)){
           if(policy.mode==='cloudflare')await access.authenticate(req,policy);
           if(url.pathname==='/'){
             const page=await webDocument();res.setHeader('Content-Security-Policy',page.csp);
@@ -198,7 +198,7 @@ export async function startHostControl(state,options={}){
           const b=await bodyJson(req,4096);if(!workspaceId(b.id)||workspaces.includes(b.id))throw error('invalid_or_existing_workspace');
           workspaces.push(b.id);writePrivate(workspaceFile,workspaces);return json(res,201,{id:b.id});
         }
-        const m=/^\/api\/workspaces\/([a-z][a-z0-9-]{0,47})\/(verify|exec|files|native|sdk|clients|open-folder|viewer-ticket)$/.exec(url.pathname);
+        const m=/^\/api\/workspaces\/([a-z][a-z0-9-]{0,47})\/(verify|exec|files|native|ime|sdk|clients|open-folder|viewer-ticket)$/.exec(url.pathname);
         if(req.method==='POST'&&m&&workspaces.includes(m[1])){
           const [,_id,operation]=m,b=await bodyJson(req);
           if(verifying)throw error('workspace_verification_in_progress');
@@ -218,7 +218,7 @@ export async function startHostControl(state,options={}){
             receipt.runtimeDigest=runtime.digest();runtime.reports.set(_id,receipt);return json(res,200,receipt);
             }finally{verifying=false;}
           }
-          if(['exec','native','sdk','clients','open-folder','viewer-ticket'].includes(operation)){
+          if(['exec','native','ime','sdk','clients','open-folder','viewer-ticket'].includes(operation)){
             // Stopping an owned GUI session must remain possible during an idle
             // runtime upgrade, when its previous verification is already stale.
             if(operation==='native'&&b.app==='stop'){await seamless?.disconnect(_id);await runtime.stopNative(_id);return json(res,200,{phase:'stopped'});}
@@ -235,6 +235,7 @@ export async function startHostControl(state,options={}){
               const r=await runtime.execute(_id,{operation:'exec',argv:['/usr/bin/python3','-I','/opt/starport/client-status.py']},{timeout:45000});
               if(r.code!==0)throw error('client_status_failed');return json(res,200,JSON.parse(r.stdout));
             }
+            if(operation==='ime'){if(Object.keys(b).some(k=>!['action','settings'].includes(k)))throw error('invalid_ime_action');return json(res,200,await runtime.imeAction(_id,b.action,b.settings));}
             if(operation==='native'){
               if(b.display==='seamless'&&(policy.mode!=='local'||!seamless))throw error('local_seamless_action_required');
               const result=await runtime.nativeAction(_id,b.app,b.display||'remote');

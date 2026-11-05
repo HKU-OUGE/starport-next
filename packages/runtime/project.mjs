@@ -1,10 +1,21 @@
+import crypto from 'node:crypto';
 import {StringDecoder} from 'node:string_decoder';
 import {error} from './common.mjs';
 import {pipeBridge} from '../control/pipe-bridge.mjs';
 import {runtimeBundle} from './project-bundle.mjs';
 
+export function publicIme(value={}){
+  const phases=['not_started','unavailable','preparing','ready','failed','reconnecting','stopped'];
+  return {phase:phases.includes(value.phase)?value.phase:'unavailable',
+    mode:['traditional','english','simplified'].includes(value.mode)?value.mode:null,
+    defaultChinese:'traditional',available:['traditional','english','simplified'],
+    hotkey:['Control+space','Control+Shift+space','Control+Alt+space'].includes(value.hotkey)?value.hotkey:'Control+space',
+    rememberWindows:value.rememberWindows!==false,
+    error:/^(?:ime|invalid_ime)_[a-z_]{1,80}$/.test(value.error||'')?value.error:null};
+}
+
 export function createProjectRuntime(state, { launch, destinations, capabilities, kind="wsl2", installed=()=>false, runtimeDigest, wslg=false, seamless=false, onState=()=>{} } = {}) {
-  const active=new Map(),nativeStates=new Map(),viewers=new Map();const reports=new Map();let alive=true;
+  const active=new Map(),nativeStates=new Map(),viewers=new Map();const reports=new Map(),imePending=new Map();let alive=true;
   if(typeof launch!=='function')throw error('workspace_transport_required');
   const spawnRunner=launch;
   function execute(workspace,request,{timeout=120000,onOutput=()=>{}}={}) {
@@ -19,7 +30,7 @@ export function createProjectRuntime(state, { launch, destinations, capabilities
     let stdout='',stderr='',settled=false,bridge;
     const decoders={stdout:new StringDecoder('utf8'),stderr:new StringDecoder('utf8')};
     const done=new Promise((resolve,reject)=>{
-      const finish=(err,result)=>{if(settled)return;settled=true;clearTimeout(timer);active.delete(key);if(request.operation==='native'){viewers.get(workspace)?.stream.destroy();viewers.delete(workspace);}bridge?.close();onState();err?reject(err):resolve(result);};
+      const finish=(err,result)=>{if(settled)return;settled=true;clearTimeout(timer);active.delete(key);if(request.operation==='native'){viewers.get(workspace)?.stream.destroy();viewers.delete(workspace);for(const [id,pending] of imePending){if(pending.workspace===workspace){clearTimeout(pending.timer);pending.reject(error('native_session_unavailable'));imePending.delete(id);}}}bridge?.close();onState();err?reject(err):resolve(result);};
       const timer=timeout===null?null:setTimeout(()=>{bridge?.close();child.kill();finish(error('workspace_operation_timeout'));},timeout);
       bridge=pipeBridge(child,destinations,{onChannel:channel=>{
         const viewer=viewers.get(workspace);
@@ -44,22 +55,23 @@ export function createProjectRuntime(state, { launch, destinations, capabilities
   async function nativeAction(workspace,app,display='wslg'){
     if(!['wslg','remote',...(seamless?['seamless']:[])].includes(display))throw error('invalid_display');
     if(display==='wslg'&&!wslg)throw error('wslg_authorization_required');
-    if(!['browser','desktop','terminal','login'].includes(app))throw error('invalid_native_app');
+    if(!['browser','desktop','terminal','login','input-test','terminal-input-test'].includes(app))throw error('invalid_native_app');
     const id=workspace+':native';
     if(active.has(id)&&nativeStates.get(workspace)?.display!==display)throw error('close_existing_display_first');
     if(!active.has(id)){
       let readyResolve,readyReject,pending='';
       const ready=new Promise((resolve,reject)=>{readyResolve=resolve;readyReject=reject;});
       nativeStates.set(workspace,{phase:'starting',display,apps:{}});
-      const timer=setTimeout(()=>{active.get(id)?.bridge.close();readyReject(error('native_start_timeout'));},20000);
+      const timer=setTimeout(()=>{active.get(id)?.bridge.close();readyReject(error('native_start_timeout'));},60000);
       const done=execute(workspace,{operation:'native',display},{timeout:null,onOutput:({stream,text})=>{
         if(stream!=='stdout')return;
         pending+=text;if(pending.length>65536){active.get(id)?.bridge.close();return;}
         let index;while((index=pending.indexOf('\n'))>=0){
           const line=pending.slice(0,index);pending=pending.slice(index+1);
           try{const value=JSON.parse(line);
-            if(value.kind==='native_ready'){nativeStates.set(workspace,{phase:'running',display,apps:{}});clearTimeout(timer);readyResolve();}
-            if(value.kind==='native_state'){const apps=Object.fromEntries(Object.entries(value.apps||{}).filter(([k,v])=>['browser','desktop','terminal','login'].includes(k)&&['running','stopped'].includes(v)));nativeStates.set(workspace,{phase:'running',display,apps});}
+            if(value.kind==='native_ready'){nativeStates.set(workspace,{phase:'running',display,apps:{},ime:publicIme(value.ime)});clearTimeout(timer);readyResolve();}
+            if(value.kind==='native_ime_result'){const p=imePending.get(value.id);if(p&&p.workspace===workspace){clearTimeout(p.timer);imePending.delete(value.id);if(value.error)p.reject(error(/^(?:ime|invalid_ime)_[a-z_]+$/.test(value.error)?value.error:'ime_action_failed'));else{const result=publicIme(value.ime),state=nativeStates.get(workspace);if(state)state.ime=result;p.resolve(result);}}}
+            if(value.kind==='native_state'){const apps=Object.fromEntries(Object.entries(value.apps||{}).filter(([k,v])=>['browser','desktop','terminal','login','input-test','terminal-input-test'].includes(k)&&['running','stopped'].includes(v)));nativeStates.set(workspace,{phase:'running',display,apps,ime:publicIme(value.ime)});}
           }catch{}
         }
       }});
@@ -71,6 +83,18 @@ export function createProjectRuntime(state, { launch, destinations, capabilities
   }
   const digest=runtimeDigest||(()=>runtimeBundle().digest);
   return {execute,reports,nativeAction,digest,
+    async imeAction(workspace,action,settings){
+      if(!['traditional','english','simplified','restart','settings'].includes(action))throw error('invalid_ime_action');
+      if(action==='settings'&&(!settings||Object.keys(settings).sort().join()!=='hotkey,rememberWindows'||!['Control+space','Control+Shift+space','Control+Alt+space'].includes(settings.hotkey)||typeof settings.rememberWindows!=='boolean'))throw error('invalid_ime_settings');
+      const session=active.get(workspace+':native');if(!session)throw error('native_session_unavailable');
+      if([...imePending.values()].some(p=>p.workspace===workspace))throw error('ime_operation_pending');
+      const id=crypto.randomBytes(12).toString('hex');
+      return new Promise((resolve,reject)=>{
+        const timer=setTimeout(()=>{imePending.delete(id);reject(error('ime_acknowledgement_timeout'));},60000);
+        imePending.set(id,{workspace,resolve,reject,timer});
+        session.bridge.send({type:'native-action',app:'ime',id,action,...(action==='settings'?{settings}: {})});
+      });
+    },
     async cancelSdk(workspace){
       const session=active.get(workspace+':sdk');if(!session)return;
       await new Promise((resolve,reject)=>{

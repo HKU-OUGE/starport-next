@@ -32,6 +32,8 @@ Linux 使用独立 QEMU 虚拟机接入同一面板，可选择网页桌面或 *
 `AGENTS.md` 和 `CLAUDE.md`。配置页可加密导出、预览并导入到新配置；不自动切换当前安装。
 官方账号登录及 Desktop 真实对话验收仍独立记录。
 
+项目图形客户端的繁体拼音、English 与可选简体配置见 [输入法](docs/INPUT-METHODS.md)。
+
 ## 先试配置
 
 需要 Node.js 22 或更高版本。
