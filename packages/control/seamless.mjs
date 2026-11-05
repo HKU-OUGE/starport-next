@@ -22,7 +22,7 @@ export function createSeamless(state,runtime,{launch=spawn,platform=process.plat
       if(!/^[a-z][a-z0-9-]{0,47}$/.test(workspace))throw error('invalid_workspace');
       if(!available('xpra')||!available('bwrap'))throw error('seamless_client_not_installed');
       const clipboard=runtime.status().seamlessClipboard||'disabled';
-      if(!['disabled','text'].includes(clipboard))throw error('invalid_clipboard_mode');
+      if(!['disabled','text','text-image'].includes(clipboard))throw error('invalid_clipboard_mode');
       const old=sessions.get(workspace);if(old&&old.child.exitCode===null&&old.peers.size)return {phase:'running',display:'seamless',reused:true,clipboard,fileTransfer:false};
       if(old)await disconnect(workspace);
       const socket=path.join(base,workspace+'.sock');

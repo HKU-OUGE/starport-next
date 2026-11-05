@@ -96,3 +96,5 @@ node bin/starport.mjs linux shortcuts remove --state private/control
 操作仅处理收据中内容未改变的本安装文件。虚拟磁盘和项目数据默认保留；永久删除须单独选择。
 
 Ubuntu 24.04 的最小镜像需要为 namespace 启动器明确授予 `userns` 权限。安装器仅在这台受管虚拟机内配置 `/usr/bin/bwrap` 的专用 AppArmor 规则，保留系统的全局限制、项目 seccomp 和 Chromium 自身沙箱。原理见 [Ubuntu 官方说明](https://documentation.ubuntu.com/security/security-features/privilege-restriction/apparmor/)。Xpra 适配当前验证 3.1 系列，其他版本明确拒绝连接，避免未经验证地传送显示信息。
+
+图片剪贴板与独立文件管理器的开启和文件拖放方式见 [图片与文件](CLIPBOARD-FILES.md)。

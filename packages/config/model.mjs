@@ -99,7 +99,7 @@ export function validateConfig(input) {
     object(input.workspace,['kind','wslg','seamless','seamlessClipboard']);
     if(!['wsl2','qemu'].includes(input.workspace.kind))fail('invalid_workspace_preferences');
     if(input.workspace.kind==='wsl2'&&typeof input.workspace.wslg!=='boolean')fail('invalid_workspace_preferences');
-    if(input.workspace.seamlessClipboard!==undefined&&!['disabled','text'].includes(input.workspace.seamlessClipboard))fail('invalid_workspace_preferences');
+    if(input.workspace.seamlessClipboard!==undefined&&!['disabled','text','text-image'].includes(input.workspace.seamlessClipboard))fail('invalid_workspace_preferences');
     if(input.workspace.seamless!==undefined&&typeof input.workspace.seamless!=='boolean')fail('invalid_workspace_preferences');
   }
   function computePolicy(p){

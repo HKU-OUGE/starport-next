@@ -36,6 +36,7 @@ if shutil.which('claude'):
         pass
 print(json.dumps({'node':version('node'),'claudeCode':version('claude'),
                   'agentSdk':json.loads(sdk.read_text())['version'] if sdk.is_file() else None,
+                  'fileManagerInstalled':bool(shutil.which('thunar')),
                   'desktopInstalled':bool(shutil.which('claude-desktop')),
                   'browser':version('google-chrome-stable') or version('firefox'),
                   'inputMethodInstalled':bool(shutil.which('fcitx5')) and pathlib.Path('/usr/share/rime-data/luna_pinyin.schema.yaml').is_file(),

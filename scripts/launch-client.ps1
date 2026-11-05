@@ -1,6 +1,6 @@
 ﻿param(
     [Parameter(Mandatory=$true)][string]$State,
-    [ValidateSet('browser','desktop','terminal','login')][string]$App='browser',
+    [ValidateSet('browser','desktop','terminal','login','files')][string]$App='browser',
     [ValidatePattern('^[a-z][a-z0-9-]{0,47}$')][string]$Workspace='main',
     [string]$Node,
     [switch]$NoDialog

@@ -15,7 +15,8 @@ if '--clipboard=yes' in sys.argv:
     spec = importlib.util.spec_from_file_location('starport_clipboard', Path(__file__).with_name('xpra-clipboard.py'))
     policy = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(policy)
-    policy.configure()
+    import os
+    policy.configure(os.environ.get("STARPORT_CLIPBOARD", "text"))
 import xpra.scripts.main as entry
 original_factory = entry.make_client
 

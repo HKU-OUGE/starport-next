@@ -1,3 +1,4 @@
+import {uploadFiles,bindFileDrop} from './file-transfer.js';
 import {initOperations} from './operations.js';
 import {initShell} from './shell.js';
 import {initRemoteSettings} from './remote.js';
@@ -30,9 +31,9 @@ $('configuration').hidden=status.control.remote!=='local';
 viewer.update(status);inputMethod.update(status);
 const choices=['remote',...(status.runtime.wslg&&status.control.remote==='local'?['wslg']:[]),...(status.runtime.seamless&&status.control.remote==='local'?['seamless']:[])];
 if([...$('client-display').options].map(o=>o.value).join()!==choices.join()){const prior=$('client-display').value;$('client-display').replaceChildren(...choices.map(value=>{const option=el('option',{remote:'网页项目桌面',wslg:'本机 WSLg 窗口',seamless:'本机 Xpra 无缝窗口'}[value]);option.value=value;return option;}));$('client-display').value=choices.includes(prior)?prior:'remote';}
-const display=$('client-display').value,remoteDisplay=display==='remote';$('native-display-compare').hidden=display!=='wslg';$('native-note').textContent={remote:'独立项目桌面',wslg:'WSLg · 共享显示与剪贴板',seamless:status.runtime.seamlessClipboard==='text'?'Xpra · 双向文字剪贴板':'Xpra · 剪贴板关闭'}[display];
+const display=$('client-display').value,remoteDisplay=display==='remote';$('native-display-compare').hidden=display!=='wslg';$('native-note').textContent={remote:'独立项目桌面',wslg:'WSLg · 共享显示与剪贴板',seamless:status.runtime.seamlessClipboard==='text-image'?'Xpra · 文字与图片剪贴板':status.runtime.seamlessClipboard==='text'?'Xpra · 双向文字剪贴板':'Xpra · 剪贴板关闭'}[display];
 $('runtime-label').textContent=status.runtime.kind==='qemu'?'QEMU 工作区':'WSL2 工作区';$('host-kind').textContent=$('platform').textContent+' / '+(status.runtime.kind==='qemu'?'QEMU':'WSL2');
-for(const name of ['browser','desktop','terminal','login','input-test','terminal-input-test','stop'])$('native-'+name).disabled=name==='stop'?false:!report?.passed||!choices.includes(display);
+for(const name of ['browser','desktop','terminal','login','files','input-test','terminal-input-test','stop'])$('native-'+name).disabled=name==='stop'?false:!report?.passed||!choices.includes(display);
 $('clients-refresh').disabled=!report?.passed||busy||sdkRunning;$('sdk-run').disabled=sdkRunning||busy||!report?.passed||!status.model?.configured;
 $('sdk-model').textContent=status.model?.configured?'模型：'+(status.model.model||'默认模型')+' · 按实际调用计费，未设置美元预算上限':'尚未配置 API Key；CLI 和 Desktop 的账号登录独立进行。';
 operations.update(status);shell.update(status);sessions.update(status);
@@ -51,9 +52,24 @@ action($('toggle-egress'),async()=>{await api('/api/egress/'+(status.egress.enab
 action($('verify'),async()=>{$('verified').textContent='验证中…';const v=await api(`/api/workspaces/${selected}/verify`,{});$('output').textContent=JSON.stringify(v,null,2);await refresh();});
 $('workspace').addEventListener('change',()=>{selected=$('workspace').value;folder='';$('files').replaceChildren();refresh();list().catch(problem);});
 $('execute').addEventListener('submit',async e=>{e.preventDefault();$('run').disabled=true;$('output').textContent='执行中…';try{const v=await api(`/api/workspaces/${selected}/exec`,{script:$('script').value});$('output').textContent=v.stdout+v.stderr+`\n退出码：${v.code}`;}catch(e){problem(e);}finally{await refresh();}});
-$('upload').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>64*1024*1024)throw Error('单文件上限为 64 MiB');const bytes=new Uint8Array(await f.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));await files({operation:'write',path:joined(f.name),data:btoa(binary),sha256:await digest(bytes)});await list();}catch(e){problem(e);}finally{e.target.value='';}});
-action($('clients-refresh'),async()=>{const v=await api(`/api/workspaces/${selected}/clients`,{});$('clients-output').textContent=`Node：${v.node||'未安装'}\nClaude Code：${v.claudeCode||'未安装'}\nAgent SDK：${v.agentSdk||'未安装'}\nClaude Desktop：${v.desktopInstalled?'已安装（请在应用内确认登录）':'未安装'}\n浏览器：${v.browser||'未安装'}\n项目输入法：${v.inputMethodInstalled?'已安装':'未安装'}\nClaude Code 账号：${v.account.loggedIn?'已登录':'待登录'}\n计算 MCP：Code ${v.computeMcp?.claudeCodeConfigured?'已配置':'未配置'} · Desktop ${v.computeMcp?.desktopConfigured?'已配置':'未配置'}\n项目计算指引：${v.computeMcp?.guidancePresent?'已就绪':'待配置'}\nMCP 配置状态不代表账号登录或真实对话验收。`;});
-for(const app of ['browser','desktop','terminal','login','input-test','terminal-input-test','display-compare','stop'])action($('native-'+app),async()=>{const display=$('client-display').value;await api(`/api/workspaces/${selected}/native`,{app,display});if(app==='stop'){viewer.disconnect();$('clients-output').textContent='工作区图形应用已关闭。';}else if(display==='remote'){await viewer.connect();$('clients-output').textContent='已在项目桌面打开。';}else $('clients-output').textContent='已请求打开本机应用窗口。';await refresh();});
+let uploading=false;
+async function uploadBatch(items){
+ if(uploading)throw Error('请等待当前上传完成');
+ const workspace=selected,directory=folder;uploading=true;$('upload').disabled=true;
+ try{
+  const current=await api(`/api/workspaces/${workspace}/files`,{operation:'list',path:directory});
+  if(current.nextOffset!==null)throw Error('目录超过 500 项，请通过“打开项目文件夹”传输，避免误覆盖');
+  await uploadFiles(items,{workspace,directory,existing:current.entries.map(f=>f.name),
+   write:(id,q)=>api(`/api/workspaces/${id}/files`,q),digest,
+   confirmOverwrite:name=>confirm(`覆盖 ${name}？`),progress:text=>$('transfer-status').textContent=text});
+  if(selected===workspace&&folder===directory)await list();
+ }finally{uploading=false;$('upload').disabled=false;}
+}
+$('upload').addEventListener('change',async e=>{const files=Array.from(e.target.files);try{await uploadBatch(files);}catch(error){problem(error);}finally{e.target.value='';}});
+bindFileDrop($('file-drop'),uploadBatch,problem);
+
+action($('clients-refresh'),async()=>{const v=await api(`/api/workspaces/${selected}/clients`,{});$('clients-output').textContent=`Node：${v.node||'未安装'}\nClaude Code：${v.claudeCode||'未安装'}\nAgent SDK：${v.agentSdk||'未安装'}\nClaude Desktop：${v.desktopInstalled?'已安装（请在应用内确认登录）':'未安装'}\n浏览器：${v.browser||'未安装'}\n文件管理器：${v.fileManagerInstalled?'已安装':'待更新客户端'}\n项目输入法：${v.inputMethodInstalled?'已安装':'未安装'}\nClaude Code 账号：${v.account.loggedIn?'已登录':'待登录'}\n计算 MCP：Code ${v.computeMcp?.claudeCodeConfigured?'已配置':'未配置'} · Desktop ${v.computeMcp?.desktopConfigured?'已配置':'未配置'}\n项目计算指引：${v.computeMcp?.guidancePresent?'已就绪':'待配置'}\nMCP 配置状态不代表账号登录或真实对话验收。`;});
+for(const app of ['browser','desktop','terminal','login','files','input-test','terminal-input-test','display-compare','stop'])action($('native-'+app),async()=>{const display=$('client-display').value;await api(`/api/workspaces/${selected}/native`,{app,display});if(app==='stop'){viewer.disconnect();$('clients-output').textContent='工作区图形应用已关闭。';}else if(display==='remote'){await viewer.connect();$('clients-output').textContent='已在项目桌面打开。';}else $('clients-output').textContent='已请求打开本机应用窗口。';await refresh();});
 $('client-display').addEventListener('change',refresh);
 $('sdk-form').addEventListener('submit',async e=>{
   e.preventDefault();sdkRunning=true;$('sdk-run').disabled=true;$('clients-refresh').disabled=true;$('run').disabled=true;$('error').textContent='';$('sdk-output').textContent='任务运行中…';

@@ -61,3 +61,32 @@ with tempfile.TemporaryDirectory() as d:
   except ValueError:pass
 `],{encoding:'utf8'});assert.equal(r.status,0,r.stdout+r.stderr);
 });
+
+test('image mode survives configuration export and reports its scope',t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'image-clipboard-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const file=path.join(dir,'host.json');fs.writeFileSync(file,JSON.stringify({format:'starport-host-control',version:1,runtime:{kind:'qemu',state:'vm'},seamless:true,seamlessClipboard:'text-image'}));
+ const options=loadControlOptions(file),config=snapshotControl(file).value.config;validateConfig(config);
+ assert.equal(config.workspace.seamlessClipboard,'text-image');const r=createProjectRuntime(dir,{launch:()=>{},...options});assert.equal(r.status().clipboard,'bidirectional-text-image');r.close();
+});
+
+test('opt-in images accept valid raster bytes, reject malformed, mismatched, oversized and file targets',{skip:!python},()=>{
+ const r=spawnSync(python,['-I','-B','-c',String.raw`
+import importlib.util,io
+from PIL import Image
+s=importlib.util.spec_from_file_location('policy','packages/wsl/xpra-clipboard.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+for fmt,mime in [('PNG','image/png'),('JPEG','image/jpeg')]:
+ b=io.BytesIO();Image.new('RGB',(8,8),(1,2,3)).save(b,format=fmt);data=b.getvalue()
+ p=['clipboard-contents',1,'CLIPBOARD',mime,8,'bytes',data]
+ assert m.incoming(p,'text-image')==p
+ assert m.incoming(p)==['clipboard-contents-none',1,'CLIPBOARD']
+ t=['clipboard-token','CLIPBOARD',[mime],mime,mime,8,'bytes',data,True,False]
+ assert m.incoming(t,'text-image')==t
+ for bad in [b'bad',b'0'*(m.MAX_IMAGE_BYTES+1)]:
+  p[-1]=bad;assert m.incoming(p,'text-image')[0]=='clipboard-contents-none'
+ assert not m.image_payload('image/jpeg' if fmt=='PNG' else 'image/png',data)
+for target in ['text/uri-list','x-special/gnome-copied-files','image/svg+xml','text/html']:
+ assert m.incoming(['clipboard-contents',1,'CLIPBOARD',target,8,'bytes',b'host-path'],'text-image')[0]=='clipboard-contents-none'
+assert m.incoming(['clipboard-token','PRIMARY',['image/png']],'text-image') is None
+print('image boundary passed')
+`],{encoding:'utf8'});assert.equal(r.status,0,r.stdout+r.stderr);
+});

@@ -21,7 +21,7 @@ export function loadControlOptions(file){
   if(c.runtime?.kind==='wsl2')o.wslState=resolve(c.runtime.state||c.wslState||'wsl');
   if(c.seamless!==undefined&&typeof c.seamless!=='boolean')throw error('invalid_seamless_configuration');
   o.seamless=c.seamless===true;
-  if(c.seamlessClipboard!==undefined&&!['disabled','text'].includes(c.seamlessClipboard))throw error('invalid_clipboard_mode');
+  if(c.seamlessClipboard!==undefined&&!['disabled','text','text-image'].includes(c.seamlessClipboard))throw error('invalid_clipboard_mode');
   o.seamlessClipboard=c.seamlessClipboard||'disabled';
   if(c.credentialStorage!==undefined&&!['keyring','basic'].includes(c.credentialStorage))throw error('invalid_credential_storage');
   o.credentialStorage=c.credentialStorage||'keyring';

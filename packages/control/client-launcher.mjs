@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const fail=code=>Object.assign(new Error(code),{code});
 export async function launchLocalClient({state,workspace='main',app,fetcher=fetch,display}){
-  if(!['browser','desktop','terminal','login'].includes(app))throw fail('invalid_native_app');
+  if(!['browser','desktop','terminal','login','files'].includes(app))throw fail('invalid_native_app');
   if(!/^[a-z][a-z0-9-]{0,47}$/.test(workspace))throw fail('invalid_workspace');
   let record,key;
   try{

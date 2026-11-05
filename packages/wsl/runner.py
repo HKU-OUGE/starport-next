@@ -277,7 +277,7 @@ def serve(base=BASE, code=CODE):
                         raise ValueError('invalid_frame')
                     f = json.loads(line)
                     if f.get('type') == 'native-action':
-                        if operation != 'native' or f.get('app') not in ['browser', 'desktop', 'terminal', 'login', 'input-test', 'terminal-input-test', 'ime'] + (['viewer'] if remote else ['display-compare']):
+                        if operation != 'native' or f.get('app') not in ['browser', 'desktop', 'terminal', 'login', 'files', 'input-test', 'terminal-input-test', 'ime'] + (['viewer'] if remote else ['display-compare']):
                             raise ValueError('invalid_native_action')
                         message={'app': f['app']}
                         if f['app']=='ime':

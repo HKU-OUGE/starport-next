@@ -49,14 +49,14 @@ for(const display of ['wslg','remote'])test(`${display} apps reuse one namespace
     child.stdin.on('finish',()=>child.emit('close',0));return child;
   };
   const runtime=createWslRuntime('unused',{launch,wslg:true,destinations:{},capabilities:()=>capabilities});
-  await runtime.nativeAction('main','browser',display);await runtime.nativeAction('main','desktop',display);
+  await runtime.nativeAction('main','browser',display);await runtime.nativeAction('main','desktop',display);await runtime.nativeAction('main','files',display);
   assert.equal(launches,1);assert.equal(frames[0].request.wslg,display==='wslg');
   assert.equal(frames[0].request.display,display);
   await assert.rejects(runtime.nativeAction('main','browser',display==='wslg'?'remote':'wslg'),/close_existing_display_first/);
   assert.equal(launches,1);
   assert.equal(frames[0].request.modelCapability,undefined);
   assert.equal(capabilities.modelCapability,'sdk-only-example');
-  assert.deepEqual(frames.slice(1).map(v=>v.app),['browser','desktop']);
+  assert.deepEqual(frames.slice(1).map(v=>v.app),['browser','desktop','files']);
   await assert.rejects(runtime.nativeAction('main','arbitrary-command'),/invalid_native_app/);
   await runtime.stopNative('main');runtime.close();
 });

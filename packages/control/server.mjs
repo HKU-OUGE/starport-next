@@ -87,7 +87,7 @@ export async function startHostControl(state,options={}){
           await access.authenticate(req,policy);const bytes=viewerAsset(url.pathname);
           res.writeHead(200,{'content-type':'text/javascript; charset=utf-8','cache-control':'no-store'});return res.end(bytes);
         }
-        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/viewer.js','/ime.js','/sessions.js','/workspace-access.js','/style.css'].includes(url.pathname)){
+        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/viewer.js','/ime.js','/sessions.js','/workspace-access.js','/file-transfer.js','/style.css'].includes(url.pathname)){
           if(policy.mode==='cloudflare')await access.authenticate(req,policy);
           if(url.pathname==='/'){
             const page=await webDocument();res.setHeader('Content-Security-Policy',page.csp);

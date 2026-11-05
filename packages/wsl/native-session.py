@@ -56,7 +56,7 @@ if remote:
     log = open('/home/agent/.local/state/starport/display.log', 'w')
     if seamless:
         pathlib.Path('/run/user/1000/xpra').mkdir(mode=0o700,exist_ok=True)
-        # Xpra owns a private X server. Its optional clipboard channel is text-only;
+        # Xpra owns a private X server. Its clipboard formats are bounded by the viewer opt-in policy;
         # no host display, D-Bus, file transfer or remote commands are available.
         display_processes.append(subprocess.Popen([
             '/usr/bin/python3', '/opt/starport/xpra-clipboard.py', 'start', ':1', '--daemon=no', '--bind-tcp=127.0.0.1:14500',
@@ -159,6 +159,7 @@ def launch(name):
     terminal = ['/usr/bin/xterm', '-u8', '-class', 'StarportTerminal', '-xrm', '*openIm: true', '-fa', 'DejaVu Sans Mono', '-fs', '12',
                 '-bg', '#1e1e1e', '-fg', '#d4d4d4', '-cr', '#d4d4d4']
     commands = {
+        'files': ['/usr/bin/thunar', '/workspace'],
         'browser': ['/usr/local/bin/starport-browser', 'https://claude.ai/'],
         'input-test': ['/usr/local/bin/starport-browser', 'file:///opt/starport/ime-check.html'],
         'terminal-input-test': terminal + ['-T', 'Starport / Input test', '-e', '/usr/bin/python3', '-I', '-c',
@@ -197,6 +198,8 @@ def launch(name):
     # Diagnostics stay in the private project HOME; authentication URLs and tokens
     # must never be included in control-plane status or repository receipts.
     with open('/home/agent/.local/state/starport/' + name + '.log', 'w') as log:
+        if name == "files" and not os.path.isfile(commands[name][0]):
+            raise ValueError('native_application_not_installed')
         apps[name] = subprocess.Popen(commands[name], stdin=subprocess.DEVNULL,
                                       stdout=log, stderr=log,
                                       cwd='/workspace', start_new_session=True, env=app_env)

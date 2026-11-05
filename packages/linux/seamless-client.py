@@ -2,7 +2,7 @@
 
 Only the X11/XWayland display and one owned Unix transport are visible. Project
 programs never receive the host display socket, authority or HOME. Clipboard
-text is shared only when explicitly enabled for this viewer.
+text/images are shared only when explicitly enabled for this viewer.
 """
 import argparse
 import os
@@ -32,7 +32,7 @@ def display_authority(source, destination, display):
 
 
 def build_command(socket, etc, home, authority, display, clipboard="disabled"):
-    if clipboard not in ("disabled", "text"):
+    if clipboard not in ("disabled", "text", "text-image"):
         raise ValueError("invalid_clipboard_mode")
     if not re.fullmatch(r':[0-9]+(?:\.[0-9]+)?', display):
         raise ValueError('local_x11_or_xwayland_required')
@@ -59,11 +59,11 @@ def build_command(socket, etc, home, authority, display, clipboard="disabled"):
     environment = {'HOME': '/home/viewer', 'USER': 'viewer', 'LOGNAME': 'viewer',
                    'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8', 'TZ': 'Asia/Taipei',
                    'DISPLAY': display, 'XAUTHORITY': '/run/display/Xauthority', 'GDK_BACKEND': 'x11',
-                   'LIBGL_ALWAYS_SOFTWARE': '1', 'XPRA_FULL_INFO': '0'}
+                   'LIBGL_ALWAYS_SOFTWARE': '1', 'XPRA_FULL_INFO': '0', 'STARPORT_CLIPBOARD': clipboard, 'XPRA_MAX_CLIPBOARD_PACKET_SIZE': '16777216'}
     for key, value in environment.items():
         command += ['--setenv', key, value]
     command += ['--', '/usr/bin/python3', '/opt/starport-viewer/entry.py', 'attach', 'socket:/run/bridge/xpra.sock',
-                '--clipboard=' + ('yes' if clipboard == 'text' else 'no'), '--clipboard-direction=both',
+                '--clipboard=' + ('yes' if clipboard != 'disabled' else 'no'), '--clipboard-direction=both',
                 '--local-clipboard=CLIPBOARD', '--remote-clipboard=CLIPBOARD', '--file-transfer=no', '--printing=no', '--open-files=no',
                 '--open-url=no', '--speaker=disabled', '--microphone=disabled', '--webcam=no',
                 '--notifications=no', '--system-tray=no', '--opengl=no', '--tray=no',
@@ -74,7 +74,7 @@ def build_command(socket, etc, home, authority, display, clipboard="disabled"):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--socket', required=True)
-    parser.add_argument('--clipboard', choices=['disabled', 'text'], default='disabled')
+    parser.add_argument('--clipboard', choices=['disabled', 'text', 'text-image'], default='disabled')
     args = parser.parse_args()
     socket = Path(args.socket)
     st = socket.lstat()
