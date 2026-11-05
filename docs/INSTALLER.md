@@ -39,6 +39,6 @@ Windows 的“已安装的应用”和开始菜单均有管理入口；Linux 应
 
 ## 验证范围
 
-此版是预发布安装器。发布流水线分别在 Linux 和 Windows 执行测试、构建和包校验；Windows 的 UAC／WSLg、实际注销重登和全新机器上的完整系统安装仍需要目标机验收。完整工作区与输入法的已有运行证据见 [验收记录](ACCEPTANCE.md)。
+此版是预发布安装器。Linux 和 Windows 的真实安装包已通过安装、修复、保留数据卸载、重装和永久删除测试，包括中文与空格路径；详见[安装器验收](verification/installer-0.3.json)。Windows 的 UAC／WSLg、实际注销重登和全新机器上的完整系统安装仍需要目标机验收。完整工作区与输入法的已有运行证据见 [验收记录](ACCEPTANCE.md)。
 
 安装包附 SHA-256 校验文件，尚未进行商业代码签名。来源和校验值应与本仓库 Release 一致。离线校验：Linux 安装器支持 `--check`；Windows 安装器支持 `/S /VERIFY`。运行 `--check` 不安装工作区或修改系统。

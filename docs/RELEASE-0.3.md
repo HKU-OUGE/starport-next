@@ -11,4 +11,6 @@ Starport Next 的首个统一安装器预发布版本。
 
 先下载对应 `.exe` 或 `.run`，按[安装指南](https://github.com/HKU-OUGE/starport-next/blob/main/docs/INSTALLER.md)操作。首次下载的运行环境和客户端仍需联网。
 
-这是 **beta**：代码测试与安装包校验按平台分别执行；Windows 的交互式 UAC、全新 WSL2 和 WSLg 输入仍需实际机器验收。安装包提供 SHA-256 校验，尚未商业代码签名。
+Linux 与 Windows 的真实安装包均通过安装、修复、保留数据卸载、重装和彻底卸载测试；包含中文路径和 Windows 中文菜单验证。
+
+这是 **beta**：Windows 的交互式 UAC、全新 WSL2 和 WSLg 输入仍需实际机器验收。安装包提供 SHA-256 校验，尚未商业代码签名。

@@ -1,0 +1,28 @@
+{
+  "format": "starport-acceptance-summary",
+  "date": "2026-11-06",
+  "version": "0.3.0-beta.1",
+  "buildChecks": "https://github.com/HKU-OUGE/starport-next/actions/runs/42077827462",
+  "packageLifecycle": {
+    "linuxX64": "passed",
+    "windowsX64": "passed",
+    "steps": ["manifest-integrity", "install", "repair", "preserve-data-uninstall", "reinstall", "delete-owned-data"],
+    "unicodeAndSpaceInInstallPath": true,
+    "windowsUnicodeMenuRegistration": true,
+    "existingProjectDataPreserved": true,
+    "scope": "real packaged control center; no workspace, cloud resource or administrator elevation"
+  },
+  "tests": {
+    "localLinux": {"passed": 144, "skipped": 3, "failed": 0},
+    "ciLinux": {"passed": 142, "skipped": 5, "failed": 0},
+    "ciWindows": {"passed": 137, "skipped": 10, "failed": 0}
+  },
+  "ui": {"desktopWidth": 1100, "mobileWidth": 390, "horizontalOverflow": false, "consoleErrors": 0, "defaultUninstallPreservesData": true},
+  "unverified": [
+    "interactive UAC and PolicyKit authentication on a fresh machine",
+    "full fresh workspace and client installation through this wizard",
+    "Windows WSLg input and actual logout/reboot through this wizard",
+    "real account authorization and remote provider connections through this wizard"
+  ],
+  "scope": "sanitized-summary-not-a-portable-runtime-authorization"
+}
