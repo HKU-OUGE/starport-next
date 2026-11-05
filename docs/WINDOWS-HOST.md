@@ -88,7 +88,7 @@ powershell -ExecutionPolicy Bypass -File scripts/register-client-shortcuts.ps1 -
 
 会保留原始图标备份，并仅修复此发行版中已识别的 Chrome／Claude 自动图标。WSL 可能重新生成
 其自动菜单，日常优先使用独立的 Starport Next 快捷方式。安装交付时应从这三个入口分别验证
-独立窗口，不能只检查进程已启动。浏览器按会话明确选择 Wayland／X11，不使用 `ozone-platform=auto`。
+独立窗口，不能只检查进程已启动。当前项目入口明确使用 X11/XWayland（`--ozone-platform=x11`），不使用 `ozone-platform=auto`。用户修改入口或直接启动底层脚本后，可能改走 Wayland；以运行进程的参数为准。
 密钥环由用户在独立窗口解锁；账号登录另行验收。
 
 `-Appearance original`（默认）恢复原图标和名称，仍使用项目启动器；`-Appearance next` 保留
@@ -285,3 +285,5 @@ Access 公网验收。最新细项见[验收矩阵](ACCEPTANCE.md)。
 这条 Windows／WSL2 方案的项目工作区位于安装电脑的 WSL2 中。Agent 看到的 `/workspace` 对应该项目的持久文件夹；远端服务器只接收独立计算任务，任务产物通过下载回到项目，不自动同步整个工作区。
 
 本机面板的「项目工作区」顶部提供「在资源管理器中打开」，会话页也可打开当前会话所属的项目文件夹。远程域名页面显示「安装电脑 · WSL2」及「打开本机面板」，保留项目选择；这个跳转应在安装 Starport 的电脑上使用，并独立完成本机访问码认证。手机或其他电脑的资源管理器不能直接打开该 WSL 目录。远程页面仍不能调用宿主 Explorer，链接中不携带访问码、凭据或实际目录。
+
+Chrome 窗口消失、重新打开后仍是原页面时，先按[WSLg 窗口诊断](WSLG-DIAGNOSTICS.md)记录进程是否变化，再判断显示连接或浏览器退出。
