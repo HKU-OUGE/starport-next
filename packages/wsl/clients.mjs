@@ -10,7 +10,7 @@ import {wslArgs} from './runtime.mjs';
 import {runInstaller} from './installer-pipe.mjs';
 
 // Downloads use the controlled proxy over stdio, with no Windows inbound port.
-export async function installWslClients(state,options,{onProgress=()=>{},remoteOnly=false,imeOnly=false}={}){
+export async function installWslClients(state,options,{onProgress=()=>{},remoteOnly=false,imeOnly=false,inputMethod=true}={}){
   if(process.platform!=='win32')throw error('wsl_install_requires_windows');
   state=privateDir(state);const receipt=read(path.join(state,'wsl.json'));
   if(receipt.phase!=='installed')throw error('wsl_install_required');
@@ -26,7 +26,7 @@ export async function installWslClients(state,options,{onProgress=()=>{},remoteO
     const files=guestFiles(arch);
     const fullScript=fs.readFileSync(new URL('./install-clients.sh',import.meta.url),'utf8').replaceAll('\r\n','\n');
     const imeScript=fs.readFileSync(new URL('./install-ime.sh',import.meta.url),'utf8').replaceAll('\r\n','\n');
-    const script=imeOnly?imeScript:remoteOnly?fullScript.split('install -d -m 0755 /etc/apt/keyrings')[0]:fullScript+'\n'+imeScript;
+    const script=imeOnly?imeScript:remoteOnly?fullScript.split('install -d -m 0755 /etc/apt/keyrings')[0]:fullScript+(inputMethod?'\n'+imeScript:'');
     const bootstrap=`import json,sys,pathlib,subprocess,fcntl,os
 q=json.load(sys.stdin)
 assert os.geteuid()==0 and pathlib.Path('/opt/starport-wsl/owner').read_text()==q['owner']
@@ -59,7 +59,7 @@ sys.exit(result.returncode)
 }
 
 export function wslBrowserScript(architecture){
-  return architecture==='x64'?`#!/bin/bash\nset -eu\nexec /usr/bin/google-chrome-stable --user-data-dir="$HOME/.config/starport-browser" --ozone-platform="\${ELECTRON_OZONE_PLATFORM_HINT:-wayland}" --proxy-server=http://127.0.0.1:13128 --proxy-bypass-list="localhost;127.0.0.1;[::1]" --disable-quic --no-first-run --lang=zh-TW "$@"\n`:nativeFiles(architecture)['/usr/local/bin/starport-browser'];
+  return architecture==='x64'?`#!/bin/bash\nset -eu\nextra=()\nif [ "\${STARPORT_PASSWORD_STORE:-keyring}" = basic ]; then extra+=(--password-store=basic); fi\nexec /usr/bin/google-chrome-stable --user-data-dir="$HOME/.config/starport-browser" --ozone-platform="\${ELECTRON_OZONE_PLATFORM_HINT:-wayland}" --proxy-server=http://127.0.0.1:13128 --proxy-bypass-list="localhost;127.0.0.1;[::1]" --disable-quic --no-first-run --lang=zh-TW "\${extra[@]}" "$@"\n`:nativeFiles(architecture)['/usr/local/bin/starport-browser'];
 }
 export async function configureWslClients(state){
   if(process.platform!=='win32')throw error('wsl_install_requires_windows');

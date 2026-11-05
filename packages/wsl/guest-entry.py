@@ -64,6 +64,10 @@ def main():
             os.environ.pop(name, None)
         # This trusted supervisor owns the control pipe. Applications get a TTY
         # or /dev/null, never the operator protocol on stdin.
+        mode = request.get('credentialStorage', 'keyring')
+        if mode not in ('keyring', 'basic'):
+            raise ValueError('invalid_credential_storage')
+        os.environ['STARPORT_CREDENTIAL_STORAGE'] = mode
         import runpy
         runpy.run_path('/opt/starport/native-session.py', run_name='__main__')
         return 0

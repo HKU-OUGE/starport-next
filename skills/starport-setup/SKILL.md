@@ -66,8 +66,10 @@ Never reuse an old runtime's successful report to authorize a new version.
    (or `wslg: true`); an existing choice in the conversation is sufficient.
    Do not claim manual clipboard isolation in this mode, disable Chromium's
    sandbox, or weaken network/filesystem isolation to get a window to launch.
-   Let the user create/unlock the private Linux keyring in its own window; never
-   request its password in chat or bypass it with a plaintext password store.
+   Default to the private Linux keyring. The unified installer may offer basic storage
+   only after an explicit user choice that explains the reduced credential protection;
+   it applies to new projects and never migrates existing account profiles. Never
+   request a keyring or administrator password in chat.
    When WSLg is chosen, complete Windows desktop and Start-menu shortcuts before
    handoff. `setup-wsl-clients.ps1 -EnableWslg -ControlState <actual-control-state>`
    registers them; for existing installs use `register-client-shortcuts.ps1` with
@@ -245,3 +247,7 @@ the actual `--ozone-platform` arguments inside the project. Do not launch throug
 the distribution's administrative shell, reuse the signed-in browser profile,
 or infer Wayland input-method acceptance from the X11 result. Preserve the default
 X11 client launches; do not silently stop other work to update the launcher.
+
+## Unified installer
+
+Use the checksummed release entry points documented in [INSTALLER.md](../../docs/INSTALLER.md). The installer includes Node and a local feature/configuration wizard. Explain the keyring choice and ask whether to enable current-user login startup; prior explicit choices remain valid. System privileges use Windows UAC or Linux PolicyKit, never a password field in the web UI. Cancellation, a required reboot, failed downloads and failed verification are incomplete stages, not success. Keep progress for retry. Do not replace an unmanaged directory or stop active work. Report package verification, core installation and complete target-machine workspace acceptance separately.

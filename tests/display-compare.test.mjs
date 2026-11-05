@@ -39,7 +39,7 @@ def popen(argv,**kwargs):
  calls.append((argv,kwargs));return types.SimpleNamespace(poll=lambda:None)
 context={'remote':False,'apps':{},'os':os,'shutil':types.SimpleNamespace(which=lambda _:True),
  'subprocess':types.SimpleNamespace(Popen=popen,DEVNULL=subprocess.DEVNULL),
- 'open':lambda *args,**kwargs:io.StringIO(),'report':lambda:None}
+ 'open':lambda *args,**kwargs:io.StringIO(),'password_store':'keyring','report':lambda:None}
 exec(compile(ast.Module(body=[function],type_ignores=[]),'native-launch','exec'),context)
 context['launch']('display-compare');context['launch']('display-compare')
 assert len(calls)==2

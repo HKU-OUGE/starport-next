@@ -15,7 +15,8 @@ export function publicIme(value={}){
     error:/^(?:ime|invalid_ime)_[a-z_]{1,80}$/.test(value.error||'')?value.error:null};
 }
 
-export function createProjectRuntime(state, { launch, destinations, capabilities, kind="wsl2", installed=()=>false, runtimeDigest, wslg=false, seamless=false, seamlessClipboard="disabled", onState=()=>{} } = {}) {
+export function createProjectRuntime(state, { launch, destinations, capabilities, kind="wsl2", installed=()=>false, runtimeDigest, wslg=false, seamless=false, seamlessClipboard="disabled", credentialStorage="keyring", onState=()=>{} } = {}) {
+  if(!['keyring','basic'].includes(credentialStorage))throw error('invalid_credential_storage');
   if(!['disabled','text'].includes(seamlessClipboard))throw error('invalid_clipboard_mode');
   const active=new Map(),nativeStates=new Map(),viewers=new Map();const reports=new Map(),imePending=new Map();let alive=true;
   if(typeof launch!=='function')throw error('workspace_transport_required');
@@ -50,7 +51,7 @@ export function createProjectRuntime(state, { launch, destinations, capabilities
         else if(f.type==='disconnected')finish(error('workspace_control_disconnected'));
       }});
       active.set(key,{child,bridge,startedAt:new Date().toISOString()});
-      child.stdin.write(JSON.stringify({workspace,request:{...request,...token,...(request.operation==='native'?{wslg:request.display!=='remote'&&wslg}:{})}})+'\n');
+      child.stdin.write(JSON.stringify({workspace,request:{...request,...token,...(request.operation==='native'?{credentialStorage}:{}),...(request.operation==='native'?{wslg:request.display!=='remote'&&wslg}:{})}})+'\n');
     });
     onState();return done;
   }

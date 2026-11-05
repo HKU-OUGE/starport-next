@@ -34,6 +34,10 @@ Linux 使用独立 QEMU 虚拟机接入同一面板，可选择网页桌面或 *
 
 项目图形客户端的繁体拼音、English 与可选简体配置见 [输入法](docs/INPUT-METHODS.md)。
 
+## 安装
+
+从 [Releases](https://github.com/HKU-OUGE/starport-next/releases) 下载 Windows `.exe` 或 Linux `.run`，打开本机安装向导，勾选功能并填写配置。再次打开可更新、修复或卸载。管理员操作使用系统授权窗口。[安装指南](docs/INSTALLER.md)
+
 ## 先试配置
 
 需要 Node.js 22 或更高版本。

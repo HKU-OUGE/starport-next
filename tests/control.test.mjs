@@ -129,3 +129,12 @@ test('managed SSH forwards only a loopback training API and never a remote shell
   assert.equal(a.at(-1),'operator@compute.example.com');
   assert.throws(()=>computeSshArgs({...c,host:'-oProxyCommand=bad'},19091),/invalid_compute/);
 });
+test('installer quiesce atomically rejects new mutations and can resume an idle control',async t=>{
+ const d=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-quiesce-')),s=await startHostControl(d,{port:0});t.after(async()=>{await s.close();fs.rmSync(d,{recursive:true,force:true});});const origin=s.url.slice(0,-1),key=JSON.parse(fs.readFileSync(path.join(d,'panel-key.json'))).key;
+ const login=await fetch(s.url+'api/login',{method:'POST',headers:{origin},body:JSON.stringify({key})});const cookie=login.headers.get('set-cookie').split(';')[0],status=await(await fetch(s.url+'api/status',{headers:{cookie}})).json();
+ const headers={origin,cookie,'x-csrf-token':status.csrf};const post=(route,body={})=>fetch(s.url+route,{method:'POST',headers,body:JSON.stringify(body)});
+ assert.equal((await post('api/installer/quiesce')).status,200);
+ assert.equal((await(await post('api/workspaces',{id:'blocked'})).json()).error,'control_shutting_down');
+ assert.equal((await fetch(s.url+'api/status',{headers:{cookie}})).status,200);
+ assert.equal((await post('api/installer/resume')).status,200);assert.equal((await post('api/workspaces',{id:'allowed'})).status,201);
+});

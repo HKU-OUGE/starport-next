@@ -20,7 +20,7 @@ export function linuxServicePlan(state,configurationFile,{repo=repository,node=p
   const id=hash(state+'\0'+configurationFile).slice(0,16),prefix='starport-next-'+id;
   const resolve=(value,root=base)=>{if(!relative(value))throw error('relative_service_path_required');return path.resolve(root,value);};
   const entries=[];
-  if((config.runtime?.kind||'qemu')==='qemu')entries.push({id:'vm',state:resolve(config.runtime?.state||'qemu'),configurationFile,kind:'vm'});
+  if(config.workspaceEnabled!==false&&(config.runtime?.kind||'qemu')==='qemu')entries.push({id:'vm',state:resolve(config.runtime?.state||'qemu'),configurationFile,kind:'vm'});
   const workers=[...(config.workerComputeFile?[{id:'primary',workerComputeFile:config.workerComputeFile}]:[]),...(config.computeNodes||[]).filter(n=>n.workerComputeFile)];
   for(const w of workers){
     if(!/^[a-z][a-z0-9-]{0,47}$/.test(w.id))throw error('invalid_compute_node');
@@ -81,7 +81,7 @@ export function createLinuxServices(state,configurationFile,{home=os.homedir(),e
       return {supported:true,startup:{registered:true,enabled:rows.every(x=>x.enabled),kind:'systemd-user'},supervisor:{phase:'systemd'},services:rows};
     },
     async action(action){
-      if(!['enable','disable','start','unregister'].includes(action))throw error('invalid_service_action');
+      if(!['enable','disable','start','stop','unregister'].includes(action))throw error('invalid_service_action');
       const m=action==='enable'?await register():owned();
       if(!m)throw error('service_registration_required');
       const names=m.units.map(x=>x.name);
@@ -92,6 +92,7 @@ export function createLinuxServices(state,configurationFile,{home=os.homedir(),e
           if(live&&!process.env.INVOCATION_ID)throw error('stop_manual_control_before_service_start');}
         await call(['start',...names]);
       }
+      if(action==='stop')await call(['stop',...names.slice().reverse()]);
       if(action==='disable')await call(['disable',...names]);
       if(action==='unregister'){
         for(const name of names){const r=await call(['show',name,'-p','ActiveState','--value']);if(['active','activating','deactivating'].includes(r.stdout.trim()))throw error('stop_owned_services_before_uninstall');}

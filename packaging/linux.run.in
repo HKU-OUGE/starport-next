@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+case "$(uname -s):$(uname -m)" in Linux:x86_64) ;; *) echo 'This release supports Linux x86_64.'; exit 2;; esac
+umask 077
+if [ "${1:-}" = --help ]; then echo 'Usage: sh Starport-Next-Linux-x64.run [--target PATH] [--check] [--extract EMPTY_DIRECTORY]'; exit 0; fi
+line=$(awk '/^__STARPORT_PAYLOAD__$/ {print NR+1; exit}' "$0")
+work=$(mktemp -d "${TMPDIR:-/tmp}/starport-setup.XXXXXXXX")
+trap 'rm -rf -- "$work"' EXIT HUP INT TERM
+tail -n +"$line" "$0" > "$work/payload.tar.gz"
+actual=$(sha256sum "$work/payload.tar.gz" | cut -d ' ' -f1)
+[ "$actual" = '@PAYLOAD_SHA256@' ] || { echo 'Release integrity check failed.'; exit 3; }
+if [ "${1:-}" = --extract ]; then
+ [ $# = 2 ] || exit 2
+ [ ! -e "$2" ] || { echo 'Extraction destination must not exist.'; exit 4; }
+ mkdir -p -- "$2";tar -xzf "$work/payload.tar.gz" -C "$2";exit 0
+fi
+mkdir "$work/source"
+tar -xzf "$work/payload.tar.gz" -C "$work/source"
+"$work/source/runtime/bin/node" "$work/source/app/packages/installer/cli.mjs" --source "$work/source" "$@"
+exit $?
+__STARPORT_PAYLOAD__

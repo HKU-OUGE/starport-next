@@ -5,6 +5,7 @@ The current release includes portable configuration, local QEMU workspaces, and 
 Windows/WSL2 and Linux/QEMU control planes with web desktops, optional WSLg or Xpra windows. Consult
 [ROADMAP.md](docs/ROADMAP.md) before claiming that an adapter is implemented.
 
+- Unified release installer: read [INSTALLER.md](docs/INSTALLER.md).
 - Configuration setup/import: read [the setup skill](skills/starport-setup/SKILL.md).
 - Explicit removal: read [the uninstall skill](skills/starport-uninstall/SKILL.md).
 - Architecture and user flow: [DESIGN.md](docs/DESIGN.md).

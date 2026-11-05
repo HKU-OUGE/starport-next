@@ -59,7 +59,7 @@ localtime.unlink(missing_ok=True)
 localtime.symlink_to('/usr/share/zoneinfo/Asia/Taipei')
 pathlib.Path('/etc/default/locale').write_text('LANG=zh_TW.UTF-8\nLC_ALL=zh_TW.UTF-8\nLANGUAGE=zh_TW:en_US\n')
 for name, content in q['files'].items():
-    if name not in ['runner.py', 'guest-entry.py', 'files.py', 'native-session.py', 'ime.py', 'ime-check.html', 'xpra-clipboard.py', 'sdk-agent.mjs', 'client-status.py', 'compute-mcp.py', 'configure-compute.py', 'COMPUTE-AGENT.md', 'compute-client.py']:
+    if name not in ['runner.py', 'guest-entry.py', 'files.py', 'native-session.py', 'credential-store.py', 'ime.py', 'ime-check.html', 'xpra-clipboard.py', 'sdk-agent.mjs', 'client-status.py', 'compute-mcp.py', 'configure-compute.py', 'COMPUTE-AGENT.md', 'compute-client.py']:
         raise SystemExit('invalid_runtime_file')
     public = root / 'public'
     public.mkdir(mode=0o755, exist_ok=True)

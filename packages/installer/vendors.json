@@ -1,0 +1,10 @@
+{
+  "mihomo": {
+    "linux": {"url":"https://github.com/MetaCubeX/mihomo/releases/download/v1.19.33/mihomo-linux-amd64-compatible-v1.19.33.gz","sha256":"386508bfb1c72c43b6a0eda73708ecdce82546581b0ebcb16366c53757c622b6","format":"gzip"},
+    "win32": {"url":"https://github.com/MetaCubeX/mihomo/releases/download/v1.19.33/mihomo-windows-amd64-compatible-v1.19.33.zip","sha256":"7aaf636a4f2172dcd8ec34ac4f52797b059195e5afd6409508c963e545f8864d","format":"zip"}
+  },
+  "cloudflared": {
+    "linux": {"url":"https://github.com/cloudflare/cloudflared/releases/download/2026.10.7/cloudflared-linux-amd64","sha256":"1f99fb518b83dec2ba8d870a7cc991d82a77e6196295a3d2754ba17ab9f91872","format":"binary"},
+    "win32": {"url":"https://github.com/cloudflare/cloudflared/releases/download/2026.10.7/cloudflared-windows-amd64.exe","sha256":"2493dbc168923bb3e59e5e7716f71deced92992eea9acd6e9d74f84ac7751343","format":"binary"}
+  }
+}

@@ -25,6 +25,11 @@ os.environ['GSK_RENDERER'] = 'cairo'
 os.environ['LIBGL_ALWAYS_SOFTWARE'] = '1'
 for directory in ['.config', '.local/share/applications', '.local/state/starport', '.claude-account']:
     (pathlib.Path('/home/agent') / directory).mkdir(parents=True, exist_ok=True)
+storage_spec = importlib.util.spec_from_file_location('credential_store', '/opt/starport/credential-store.py')
+storage_module = importlib.util.module_from_spec(storage_spec)
+storage_spec.loader.exec_module(storage_module)
+password_store = storage_module.select_store('/home/agent', os.environ.pop('STARPORT_CREDENTIAL_STORAGE', 'keyring'))
+os.environ['STARPORT_PASSWORD_STORE'] = password_store
 # Refresh the project capability at each native session. Desktop may launch MCP
 # with a restricted environment; no API key or management secret is persisted.
 subprocess.run(['/usr/bin/python3', '-I', '/opt/starport/configure-compute.py'],
@@ -185,6 +190,8 @@ def launch(name):
         raise ValueError('invalid_native_app')
     if name in ('browser','input-test') and shutil.which('google-chrome-stable'):
         commands[name].insert(1, '--ozone-platform=x11')
+    if name in ('browser', 'input-test', 'desktop') and password_store == 'basic':
+        commands[name].append('--password-store=basic')
     if name == 'desktop':
         commands[name].append('--ozone-platform=x11')
     # Diagnostics stay in the private project HOME; authentication URLs and tokens

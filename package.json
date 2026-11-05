@@ -1,6 +1,6 @@
 {
   "name": "starport-next",
-  "version": "0.2.0-local.1",
+  "version": "0.3.0-beta.1",
   "private": true,
   "type": "module",
   "description": "Portable configuration and an isolated local agent workspace",
@@ -20,6 +20,7 @@
     "@novnc/novnc": "1.7.0",
     "esbuild": "0.28.2",
     "jose": "6.2.14",
-    "ws": "8.22.1"
+    "ws": "8.22.1",
+    "yaml": "2.8.2"
   }
 }

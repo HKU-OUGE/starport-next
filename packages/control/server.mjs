@@ -31,7 +31,7 @@ export async function startHostControl(state,options={}){
   const lock=path.join(state,'control.lock');
   const bootId=process.platform==='linux'?fs.readFileSync('/proc/sys/kernel/random/boot_id','utf8').trim():undefined;
   try{fs.writeFileSync(lock,JSON.stringify({pid:process.pid,bootId}),{flag:'wx',mode:0o600});}catch{throw error('control_already_started_or_requires_reconciliation');}
-  let proxy,egress,compute,runtime,server,timer,tunnel,viewer,sessions,seamless;const computeSsh=[];
+  let proxy,egress,compute,runtime,server,timer,tunnel,viewer,sessions,seamless,shutdown,closed=false;const computeSsh=[];
   const workspaceFile=path.join(state,'workspaces.json');
   const workspaces=fs.existsSync(workspaceFile)?read(workspaceFile):['main'];
   if(!Array.isArray(workspaces)||workspaces.some(v=>!workspaceId(v)))throw error('invalid_workspace_registry');
@@ -40,7 +40,7 @@ export async function startHostControl(state,options={}){
   const key=read(keyFile).key;
   const configuration=createConfigurationTransfer(state,options.configurationFile);
   const services=createServices(state,options.configurationFile,options.testServices);
-  let proxyRunning=false,health={ready:false,error:'checking'},refreshedAt=null,refreshing=false,verifying=false;
+  let proxyRunning=false,health={ready:false,error:'checking'},refreshedAt=null,refreshing=false,verifying=false,quiescing=false;
   try{
     if(options.proxyCandidates){proxy=await managedProxy(state,options.proxyCandidates,{binary:options.proxyBinary,onExit:()=>{proxyRunning=false;egress?.pause();}});proxyRunning=true;}
     egress=options.testEgress||await createEgress({upstream:proxy?.upstream||{kind:'http',url:'http://127.0.0.1:9'},
@@ -106,6 +106,17 @@ export async function startHostControl(state,options={}){
         }
         const identity=await access.authenticate(req,policy);
         if(req.method!=='GET')access.check(req,policy,identity);
+        if(url.pathname.startsWith('/api/installer/')&&req.method==='POST'){
+          if(policy.mode!=='local')throw error('local_installation_action_required');
+          await bodyJson(req,1024);
+          if(url.pathname==='/api/installer/resume'){quiescing=false;return json(res,200,{resumed:true});}
+          if(!['/api/installer/quiesce','/api/installer/stop'].includes(url.pathname))throw error('unknown_route');
+          if(verifying||runtime.status().active.length||compute.jobs().some(j=>!['completed','failed','cancelled','succeeded','archived'].includes(j.status)))throw error('active_work_close_before_update');
+          quiescing=true;
+          if(url.pathname.endsWith('/quiesce'))return json(res,200,{quiesced:true});
+          json(res,200,{stopping:true});setImmediate(()=>void shutdown());return;
+        }
+        if(quiescing&&req.method!=='GET')throw error('control_shutting_down');
         if(url.pathname==='/api/sessions'){
           if(req.method==='GET')return json(res,200,{sessions:sessions.list({workspace:url.searchParams.get('workspace')||undefined,archived:url.searchParams.get('archived')==='true'})});
           if(req.method==='POST')return json(res,201,sessions.create(await bodyJson(req,4096)));
@@ -266,6 +277,7 @@ export async function startHostControl(state,options={}){
     if(options.tunnel)tunnel=startTunnel(state,options.tunnel,options.access);
     const result={port,url:`http://127.0.0.1:${port}/`,phase:'running',platform:process.platform,pid:process.pid};
     writePrivate(path.join(state,'control.json'),result);
-    return {...result,runtime,egress,compute,async close(){clearInterval(timer);sessions.close();viewer.close();seamless?.close();runtime.close();compute.close();computeSsh.forEach(s=>s.close());egress.close();proxy?.close();tunnel?.close();server.closeAllConnections();server.close();writePrivate(path.join(state,'control.json'),{...result,phase:'stopped'});fs.rmSync(lock,{force:true});}};
+    shutdown=async()=>{if(closed)return;closed=true;clearInterval(timer);sessions.close();viewer.close();seamless?.close();runtime.close();compute.close();computeSsh.forEach(s=>s.close());egress.close();proxy?.close();tunnel?.close();server.closeAllConnections();server.close();writePrivate(path.join(state,'control.json'),{...result,phase:'stopped'});fs.rmSync(lock,{force:true});};
+    return {...result,runtime,egress,compute,close:shutdown};
   }catch(e){clearInterval(timer);sessions?.close();viewer?.close();seamless?.close();runtime?.close();compute?.close();computeSsh.forEach(s=>s.close());egress?.close();proxy?.close();tunnel?.close();server?.close();fs.rmSync(lock,{force:true});throw e;}
 }

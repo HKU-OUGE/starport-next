@@ -55,7 +55,7 @@ export async function createQemuRuntime(state,options={}){
 
 // The only administrative SSH commands install verified public runtime sources
 // in an owned VM. No model-provided command is accepted at this boundary.
-export async function installProjectVm(state,{proxyPort,onProgress=()=>{},clients=true,seamless=false,update=false,repairClients=false,imeOnly=false,...resources}={}){
+export async function installProjectVm(state,{proxyPort,onProgress=()=>{},clients=true,seamless=false,update=false,repairClients=false,imeOnly=false,inputMethod=true,...resources}={}){
   if(process.platform!=='linux')throw error('linux_control_install_required');
   if(!Number.isInteger(proxyPort)||proxyPort<1||proxyPort>65535)throw error('controlled_install_proxy_required');
   state=privateDir(state);const lock=path.join(state,'project-install.lock');
@@ -91,7 +91,7 @@ export async function installProjectVm(state,{proxyPort,onProgress=()=>{},client
     if(clients&&(!update||addSeamless||repairClients)){
       onProgress({phase:'installing_project_clients'});
       const imeScript=fs.readFileSync(new URL('../wsl/install-ime.sh',import.meta.url),'utf8').replaceAll('\r\n','\n');
-      const installScript=imeOnly?imeScript:fs.readFileSync(new URL('../wsl/install-clients.sh',import.meta.url),'utf8').replaceAll('\r\n','\n')+'\n'+imeScript;
+      const installScript=imeOnly?imeScript:fs.readFileSync(new URL('../wsl/install-clients.sh',import.meta.url),'utf8').replaceAll('\r\n','\n')+(inputMethod?'\n'+imeScript:'');
       const standard=nativeFiles(machine.host.arch);
       const files={
         '/usr/local/bin/starport-browser':wslBrowserScript(machine.host.arch),

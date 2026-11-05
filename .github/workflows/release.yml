@@ -1,0 +1,73 @@
+name: Installer release
+on:
+  workflow_dispatch:
+  push:
+    branches: ['feat/unified-installer']
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.23.1
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npm run check
+      - name: Check PowerShell scripts
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          foreach ($file in (Get-ChildItem -Path scripts,packages/installer -Filter *.ps1 -Recurse)) {
+            $tokens=$null; $errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$errors)|Out-Null
+            if($errors.Count){throw ($errors|Out-String)}
+          }
+      - name: Install NSIS compiler
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install nsis --no-progress -y
+      - run: node scripts/build-release.mjs --out dist
+      - name: Exercise Linux package lifecycle
+        if: runner.os == 'Linux'
+        run: |
+          bash dist/*.run --extract "$RUNNER_TEMP/starport-payload"
+          "$RUNNER_TEMP/starport-payload/runtime/bin/node" "$RUNNER_TEMP/starport-payload/app/scripts/test-installer-package.mjs" --source "$RUNNER_TEMP/starport-payload"
+      - name: Verify Windows executable and package lifecycle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $exe=(Get-ChildItem dist/*.exe).FullName
+          $p=Start-Process -FilePath $exe -ArgumentList '/S','/SMOKE' -Wait -PassThru
+          if($p.ExitCode -ne 0){throw 'Installer payload verification failed'}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ runner.os }}
+          path: dist/*
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages-out
+      - name: Publish tested installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir release-out
+          cp packages-out/installer-Linux/*.run release-out/
+          cp packages-out/installer-Windows/*.exe release-out/
+          cat packages-out/installer-*/SHA256SUMS.txt > release-out/SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" release-out/* --verify-tag --prerelease --title "Starport Next $GITHUB_REF_NAME" --notes-file docs/RELEASE-0.3.md

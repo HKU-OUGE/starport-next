@@ -59,3 +59,7 @@ project SSHFS directory with `fusermount3 -u` before deleting anything below it;
 never recursively delete a mounted project directory. Stop the exact owned QEMU
 VM and preserve its disk/project data unless explicitly included in the user's
 deletion scope. A shared Xpra, SSHFS or QEMU package is not owned by one deployment.
+
+## Unified release installs
+
+Prefer the installation manager in [INSTALLER.md](../../docs/INSTALLER.md). It checks the ownership receipt and quiesces the idle control before stopping only its services. Default uninstall retains private configuration and project disks; require the user to explicitly select permanent data deletion before unregistering an owned WSL distribution or removing `private/`. Never treat shared system dependencies or cloud resources as installer-owned. A blocked mount, active job, altered shortcut or uncertain process identity must remain visible, not trigger a forced cleanup.

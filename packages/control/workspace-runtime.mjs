@@ -12,8 +12,8 @@ export function runtimeChoice(options={},platform=process.platform){
 }
 export async function createWorkspaceRuntime(state,options,shared){
   const kind=runtimeChoice(options);
-  if(options.testLaunch)return createProjectRuntime(state,{...shared,launch:options.testLaunch,kind,
+  if(options.testLaunch)return createProjectRuntime(state,{...shared,credentialStorage:options.credentialStorage,launch:options.testLaunch,kind,
     installed:()=>true,wslg:options.wslg===true,seamless:options.seamless===true,seamlessClipboard:options.seamlessClipboard});
-  if(kind==='wsl2')return createWslRuntime(options.wslState||path.join(state,'wsl'),{...shared,wslg:options.wslg===true});
-  return createQemuRuntime(options.qemuState||path.join(state,'qemu'),{...shared,seamless:options.seamless===true,seamlessClipboard:options.seamlessClipboard});
+  if(kind==='wsl2')return createWslRuntime(options.wslState||path.join(state,'wsl'),{...shared,credentialStorage:options.credentialStorage,wslg:options.wslg===true});
+  return createQemuRuntime(options.qemuState||path.join(state,'qemu'),{...shared,credentialStorage:options.credentialStorage,seamless:options.seamless===true,seamlessClipboard:options.seamlessClipboard});
 }

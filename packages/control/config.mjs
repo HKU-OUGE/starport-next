@@ -23,6 +23,8 @@ export function loadControlOptions(file){
   o.seamless=c.seamless===true;
   if(c.seamlessClipboard!==undefined&&!['disabled','text'].includes(c.seamlessClipboard))throw error('invalid_clipboard_mode');
   o.seamlessClipboard=c.seamlessClipboard||'disabled';
+  if(c.credentialStorage!==undefined&&!['keyring','basic'].includes(c.credentialStorage))throw error('invalid_credential_storage');
+  o.credentialStorage=c.credentialStorage||'keyring';
   if(c.wslg!==undefined&&typeof c.wslg!=='boolean')throw error('invalid_wslg_configuration');
   o.wslg=c.wslg===true;
   if(!Number.isInteger(o.port)||o.port<1024||o.port>65535)throw error('invalid_control_port');

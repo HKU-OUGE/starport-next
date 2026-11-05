@@ -1,6 +1,6 @@
-function Get-StarportNode {
+﻿function Get-StarportNode {
   param([string]$Repo)
-  $Candidates = @()
+  $Candidates = @((Join-Path $Repo '../runtime/node.exe'))
   $Existing = Get-Command node.exe -ErrorAction SilentlyContinue
   if ($Existing) { $Candidates += $Existing.Source }
   if ($env:ProgramFiles) { $Candidates += (Join-Path $env:ProgramFiles 'nodejs/node.exe') }

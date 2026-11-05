@@ -52,7 +52,7 @@ Windows 另提供 WSLg 独立窗口，只有显式选择后共享 Windows 显示
 - 引入有摘要签名的发布产物、可恢复下载、安装收据、版本回滚及范围明确的卸载器。
 
 本地依赖安装脚本和 Windows 当前用户登录启动已提供，见 [SERVICES.md](SERVICES.md)。
-Linux 已提供 systemd 用户服务、QEMU 面板、SSHFS 项目文件夹和可选 Xpra 窗口，见 [Linux 控制端](LINUX-HOST.md)。原生发布包、macOS 启动注册与完整生命周期安装器仍待实现。Linux 测试成功不等于 Windows 真实安装成功。
+Linux 已提供 systemd 用户服务、QEMU 面板、SSHFS 项目文件夹和可选 Xpra 窗口，见 [Linux 控制端](LINUX-HOST.md)。Windows／Linux 已提供统一安装器预发布包，含可选组件、原生授权、检测／修复和保留数据的卸载，见 [安装指南](INSTALLER.md)。macOS 安装器仍待实现。Linux 测试成功不等于 Windows 真实安装成功。
 
 Windows 提供安装入口、访问码窗口、登录启动与独立守护；不安装 QEMU，不更改现有 WSL
 全局配置。WSL2 内层使用独立命名空间、最小挂载与 syscall 策略。Windows 实机导入、
