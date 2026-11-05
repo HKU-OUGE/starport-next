@@ -34,6 +34,16 @@ node bin/starport.mjs linux ime-install --config private/host-control.json
 
 从 Starport 的项目入口打开应用。Chrome／Electron 显式使用 X11／XWayland 兼容路径；Linux Xpra 转发项目的应用和候选窗，Windows WSLg 显示它们。
 
+Windows 选择「本机 WSLg 窗口」后，可在「输入法」中点击「对比 X11 / Wayland」。
+它同时打开两个标明协议的 Chrome 离线测试窗口，各用独立测试配置，不复用日常浏览器的
+账号或配置目录。两个窗口仍处于当前项目边界内，关闭工作区应用时一起结束；普通浏览器
+和 Desktop 的默认 X11 启动方式不变。Wayland 的输入法与候选窗兼容性需要单独观察，
+不能由 X11 的输入结果推断通过。网页桌面和 Linux Xpra 不提供此 WSLg 对比入口。
+
+2026-11-05 Windows 实机已同时显示两个标记窗口，并核对两个独立 Chrome 主进程的
+`--ozone-platform=x11`／`--ozone-platform=wayland` 与独立测试目录。此记录只确认
+双协议并行启动，不代表 Wayland 中文候选、剪贴板或所有缩放比例均已验收。
+
 - `Ctrl + Space`：当前窗口的中英切换。
 - 输入拼音后，用空格或数字选词；`Esc` 取消未提交的拼音。
 - 输入法菜单可选择繁体或简体拼音。

@@ -238,3 +238,10 @@ WSLg system components or stop all WSL distributions. Verify candidates and actu
 Traditional/English/explicit Simplified commits in all three apps and two projects.
 `verify-ime` is a read-only preflight, not proof of keyboard input. Report Windows
 and Linux evidence separately. Preserve running work and account sessions.
+
+For a requested WSLg X11/Wayland comparison, use the panel's input-method
+comparison action. Verify two labeled windows and separate test profiles, plus
+the actual `--ozone-platform` arguments inside the project. Do not launch through
+the distribution's administrative shell, reuse the signed-in browser profile,
+or infer Wayland input-method acceptance from the X11 result. Preserve the default
+X11 client launches; do not silently stop other work to update the launcher.

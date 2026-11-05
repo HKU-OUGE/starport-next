@@ -137,6 +137,12 @@ def report(ime_state=None):
         }}), flush=True)
 
 def launch(name):
+    if name == 'display-compare':
+        if remote or not shutil.which('google-chrome-stable'):
+            raise ValueError('display_comparison_unavailable')
+        for backend in ['x11', 'wayland']:
+            launch('compare-' + backend)
+        return
     if name == 'viewer' and remote:
         connect_viewer()
         return
@@ -157,6 +163,24 @@ def launch(name):
         'terminal': terminal + ['-T', 'Starport / Claude Code', '-e', '/bin/bash', '--noprofile', '--norc', '-c', 'claude; exec bash --noprofile --norc'],
         'login': terminal + ['-T', 'Starport / Claude Code Login', '-e', '/bin/bash', '--noprofile', '--norc', '-c', 'claude auth login --claudeai; printf "\\nPress Enter to close."; read -r ignored'],
     }
+    app_env = os.environ.copy()
+    if name in ('compare-x11', 'compare-wayland'):
+        backend = name.removeprefix('compare-')
+        if remote:
+            raise ValueError('display_comparison_requires_wslg')
+        # Separate profiles prevent Chromium's single-instance handoff from
+        # silently reusing the other backend or the user's signed-in browser.
+        commands[name] = ['/usr/bin/google-chrome-stable',
+                          '--user-data-dir=/home/agent/.config/starport-compare-' + backend,
+                          '--ozone-platform=' + backend,
+                          '--proxy-server=http://127.0.0.1:13128',
+                          '--proxy-bypass-list=localhost;127.0.0.1;[::1]',
+                          '--disable-quic', '--no-first-run', '--no-default-browser-check',
+                          '--lang=zh-TW', '--window-size=740,720',
+                          '--window-position=' + ('20,60' if backend == 'x11' else '800,60'),
+                          '--app=file:///opt/starport/ime-check.html?backend=' + backend]
+        app_env['ELECTRON_OZONE_PLATFORM_HINT'] = backend
+        app_env['XDG_SESSION_TYPE'] = backend
     if name not in commands:
         raise ValueError('invalid_native_app')
     if name in ('browser','input-test') and shutil.which('google-chrome-stable'):
@@ -168,7 +192,7 @@ def launch(name):
     with open('/home/agent/.local/state/starport/' + name + '.log', 'w') as log:
         apps[name] = subprocess.Popen(commands[name], stdin=subprocess.DEVNULL,
                                       stdout=log, stderr=log,
-                                      cwd='/workspace', start_new_session=True)
+                                      cwd='/workspace', start_new_session=True, env=app_env)
     report()
 
 def monitor():

@@ -57,7 +57,8 @@ export function createProjectRuntime(state, { launch, destinations, capabilities
   async function nativeAction(workspace,app,display='wslg'){
     if(!['wslg','remote',...(seamless?['seamless']:[])].includes(display))throw error('invalid_display');
     if(display==='wslg'&&!wslg)throw error('wslg_authorization_required');
-    if(!['browser','desktop','terminal','login','input-test','terminal-input-test'].includes(app))throw error('invalid_native_app');
+    if(!['browser','desktop','terminal','login','input-test','terminal-input-test','display-compare'].includes(app))throw error('invalid_native_app');
+    if(app==='display-compare'&&display!=='wslg')throw error('display_comparison_requires_wslg');
     const id=workspace+':native';
     if(active.has(id)&&nativeStates.get(workspace)?.display!==display)throw error('close_existing_display_first');
     if(!active.has(id)){
@@ -73,7 +74,7 @@ export function createProjectRuntime(state, { launch, destinations, capabilities
           try{const value=JSON.parse(line);
             if(value.kind==='native_ready'){nativeStates.set(workspace,{phase:'running',display,apps:{},ime:publicIme(value.ime)});clearTimeout(timer);readyResolve();}
             if(value.kind==='native_ime_result'){const p=imePending.get(value.id);if(p&&p.workspace===workspace){clearTimeout(p.timer);imePending.delete(value.id);if(value.error)p.reject(error(/^(?:ime|invalid_ime)_[a-z_]{1,80}$/.test(value.error)?value.error:'ime_action_failed'));else{const result=publicIme(value.ime),state=nativeStates.get(workspace);if(state)state.ime=result;p.resolve(result);}}}
-            if(value.kind==='native_state'){const apps=Object.fromEntries(Object.entries(value.apps||{}).filter(([k,v])=>['browser','desktop','terminal','login','input-test','terminal-input-test'].includes(k)&&['running','stopped'].includes(v)));nativeStates.set(workspace,{phase:'running',display,apps,ime:publicIme(value.ime)});}
+            if(value.kind==='native_state'){const apps=Object.fromEntries(Object.entries(value.apps||{}).filter(([k,v])=>['browser','desktop','terminal','login','input-test','terminal-input-test','compare-x11','compare-wayland'].includes(k)&&['running','stopped'].includes(v)));nativeStates.set(workspace,{phase:'running',display,apps,ime:publicIme(value.ime)});}
           }catch{}
         }
       }});
