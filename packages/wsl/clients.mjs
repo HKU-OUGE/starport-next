@@ -59,7 +59,7 @@ sys.exit(result.returncode)
 }
 
 export function wslBrowserScript(architecture){
-  return architecture==='x64'?`#!/bin/bash\nset -eu\nextra=()\nif [ "\${STARPORT_PASSWORD_STORE:-keyring}" = basic ]; then extra+=(--password-store=basic); fi\nexec /usr/bin/google-chrome-stable --user-data-dir="$HOME/.config/starport-browser" --ozone-platform="\${ELECTRON_OZONE_PLATFORM_HINT:-wayland}" --proxy-server=http://127.0.0.1:13128 --proxy-bypass-list="localhost;127.0.0.1;[::1]" --disable-quic --no-first-run --lang=zh-TW "\${extra[@]}" "$@"\n`:nativeFiles(architecture)['/usr/local/bin/starport-browser'];
+  return architecture==='x64'?`#!/bin/bash\nset -eu\nif [ "\${STARPORT_PASSWORD_STORE:-keyring}" = basic ]; then set -- --password-store=basic "$@"; fi\nexec /usr/bin/google-chrome-stable --user-data-dir="$HOME/.config/starport-browser" --ozone-platform="\${ELECTRON_OZONE_PLATFORM_HINT:-wayland}" --proxy-server=http://127.0.0.1:13128 --proxy-bypass-list="localhost;127.0.0.1;[::1]" --disable-quic --no-first-run --lang=zh-TW "$@"\n`:nativeFiles(architecture)['/usr/local/bin/starport-browser'];
 }
 export async function configureWslClients(state){
   if(process.platform!=='win32')throw error('wsl_install_requires_windows');

@@ -1,18 +1,20 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import crypto from 'node:crypto';import {spawnSync} from 'node:child_process';
-import {VERSION,validatePlan,publicPlan} from '../packages/installer/plan.mjs';import {createInstaller} from '../packages/installer/installation.mjs';import {payload,acquireLock} from '../packages/installer/owned-files.mjs';import {serveInstaller} from '../packages/installer/server.mjs';import {parseSubscription} from '../packages/installer/subscription.mjs';
+import {VERSION,validatePlan as nativeValidatePlan,publicPlan} from '../packages/installer/plan.mjs';import {createInstaller as nativeCreateInstaller} from '../packages/installer/installation.mjs';import {payload,acquireLock} from '../packages/installer/owned-files.mjs';import {serveInstaller} from '../packages/installer/server.mjs';import {parseSubscription} from '../packages/installer/subscription.mjs';
+const installerPlatform=process.platform==='win32'?'win32':'linux';
+const validatePlan=value=>nativeValidatePlan(value,installerPlatform),createInstaller=options=>nativeCreateInstaller({...options,platform:installerPlatform});
 const core={features:{workspace:false,clients:false,inputMethod:false}};
 function fixture(t){const dir=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-setup-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));const source=path.join(dir,'source'),root=path.join(dir,'installed'),runtime=process.platform==='win32'?'runtime/node.exe':'runtime/bin/node',files=[];
  for(const [name,content]of [['app/packages/installer/cli.mjs','// fixture'],[runtime,'fixture runtime'],['app/package.json','{}']]){const f=path.join(source,name);fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,content);files.push({path:name,sha256:crypto.createHash('sha256').update(content).digest('hex'),executable:false});}
- fs.writeFileSync(path.join(source,'payload-manifest.json'),JSON.stringify({format:'starport-release',version:VERSION,platform:process.platform,arch:'x64',files}));return {source,root};}
+ fs.writeFileSync(path.join(source,'payload-manifest.json'),JSON.stringify({format:'starport-release',version:VERSION,platform:installerPlatform,arch:'x64',files}));return {source,root};}
 const fake=()=>({ensureIdle:async()=>{},stopOwned:async()=>{},runStage:async()=>{},uninstallRuntime:async()=>{}});
 test('installer requires explicit basic-store choice and validates feature dependencies',()=>{
- assert.equal(validatePlan(core).credentialStorage,'keyring');assert.throws(()=>validatePlan({...core,credentialStorage:'basic'}),/explicit_choice/);
+ assert.throws(()=>nativeValidatePlan(core,'darwin'),/platform_not_supported/);assert.equal(validatePlan(core).credentialStorage,'keyring');assert.throws(()=>validatePlan({...core,credentialStorage:'basic'}),/explicit_choice/);
  assert.equal(validatePlan({...core,credentialStorage:'basic',basicAcknowledged:true}).credentialStorage,'basic');
  assert.throws(()=>validatePlan({features:{workspace:false}}),/workspace_required/);assert.throws(()=>validatePlan({...core,features:{...core.features,api:true}}),/api_requires/);
  const p=publicPlan({apiKey:'private-example',compute:{privateKey:'private-key',token:'private-token',knownHosts:'known'},remote:{token:'private-tunnel'}});assert.ok(!JSON.stringify(p).includes('private-'));
 });
 test('release payload rejects modified bytes before the installation directory is claimed',async t=>{
- const {root,source}=fixture(t);await payload(source);fs.appendFileSync(path.join(source,'app/package.json'),'changed');const m=createInstaller({root,source,driver:fake()});await assert.rejects(m.apply(core),/release_integrity_failed/);assert.equal(fs.existsSync(root),false);assert.equal(m.snapshot().running,false);
+ const {root,source}=fixture(t);await payload(source,installerPlatform);fs.appendFileSync(path.join(source,'app/package.json'),'changed');const m=createInstaller({root,source,driver:fake()});await assert.rejects(m.apply(core),/release_integrity_failed/);assert.equal(fs.existsSync(root),false);assert.equal(m.snapshot().running,false);
 });
 test('install, repair and uninstall preserve project data unless deletion is explicitly chosen',async t=>{
  const {root,source}=fixture(t),m=createInstaller({root,source,driver:fake()});await m.apply(core);assert.equal(m.snapshot().installed,true);
