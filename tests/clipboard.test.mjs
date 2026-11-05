@@ -11,7 +11,7 @@ import {createProjectRuntime} from '../packages/runtime/project.mjs';
 const python=(process.platform==='win32'?['python','python3']:['python3','python']).find(p=>{const r=spawnSync(p,['--version'],{encoding:'utf8'});return r.status===0&&/Python 3\./.test(r.stdout+r.stderr);});
 
 test('clipboard sharing is explicit, survives portable export and does not enable WSLg',t=>{
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'starport-clipboard-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const dir=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-clipboard-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
   const file=path.join(dir,'host.json'),host={format:'starport-host-control',version:1,runtime:{kind:'qemu',state:'vm'},seamless:true};
   fs.writeFileSync(file,JSON.stringify(host));assert.equal(loadControlOptions(file).seamlessClipboard,'disabled');
   host.seamlessClipboard='text';fs.writeFileSync(file,JSON.stringify(host));
@@ -45,7 +45,7 @@ print('passed')
 
 test('the neutral display client copies only its selected display authorization and rejects missing cookies',{skip:!python},()=>{
   const r=spawnSync(python,['-X','utf8','-I','-B','-c',String.raw`
-import importlib.util,tempfile,pathlib,subprocess
+import importlib.util,tempfile,pathlib,subprocess,os
 from unittest.mock import patch
 s=importlib.util.spec_from_file_location('viewer','packages/linux/seamless-client.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 with tempfile.TemporaryDirectory() as d:
@@ -55,7 +55,7 @@ with tempfile.TemporaryDirectory() as d:
   assert m.display_authority(pathlib.Path(d)/'source',target,':17')==target
   assert run.call_args_list[0].args[0][-2:]==['nlist',':17']
   assert run.call_args.kwargs['input'].startswith('ffff ')
-  assert target.stat().st_mode&0o077==0
+  if os.name!='nt':assert target.stat().st_mode&0o077==0
  with patch.object(m.subprocess,'run',return_value=subprocess.CompletedProcess([],0,'','')):
   try:m.display_authority(target,target,':18');raise AssertionError('missing authorization accepted')
   except ValueError:pass
