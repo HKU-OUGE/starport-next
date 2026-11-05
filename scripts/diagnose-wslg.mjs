@@ -2,8 +2,9 @@
 // Operator-only, read-only, no network requests and no changes to WSL or Chrome.
 import fs from 'node:fs';
 import path from 'node:path';
-import {run,executable,privateDir,read} from '../packages/runtime/common.mjs';
-import {wslArgs} from '../packages/wsl/runtime.mjs';
+import {spawnSync} from 'node:child_process';
+import {run,executable,privateDir,read,cleanEnv} from '../packages/runtime/common.mjs';
+import {wslArgs,decodeNames} from '../packages/wsl/runtime.mjs';
 try{
   const args=process.argv.slice(2),o={};
   while(args.length){const key=args.shift(),value=args.shift();if(!['--state','--workspace','--watch','--output'].includes(key)||!value||key in o)throw Error('invalid_arguments');o[key]=value;}
@@ -15,9 +16,9 @@ try{
   if(!/^[a-f0-9]{64}$/.test(receipt.owner||''))throw Error('owned_wsl_required');
   const wsl=executable('wsl');if(!wsl)throw Error('wsl_not_installed');
   // Query running distributions first. A diagnostic must not boot a stopped VM.
-  const running=await run(wsl,['--list','--running','--quiet'],{timeout:10000,maxBytes:65536});
-  if(running.code!==0)throw Error('wsl_status_unavailable');
-  if(!running.stdout.replaceAll('\0','').split(/\r?\n/).map(s=>s.trim()).includes(receipt.distribution))throw Error('owned_wsl_not_running');
+  const running=spawnSync(wsl,['--list','--running','--quiet'],{timeout:10000,maxBuffer:65536,windowsHide:true,env:cleanEnv()});
+  if(running.status!==0)throw Error('wsl_status_unavailable');
+  if(!decodeNames(running.stdout).includes(receipt.distribution))throw Error('owned_wsl_not_running');
   const output=o['--output']?path.resolve(o['--output']):null;
   if(output){privateDir(path.dirname(output));fs.writeFileSync(output,'',{flag:'wx',mode:0o600});}
   const end=Date.now()+seconds*1000;let prior=null;
@@ -25,8 +26,8 @@ try{
     const result=await run(wsl,argv,{input:JSON.stringify({workspace,owner:receipt.owner})+'\n',timeout:20000,maxBytes:65536});
     if(result.code!==0)throw Error('display_diagnostic_failed');
     const current=JSON.parse(result.stdout);
-    const same=prior&&JSON.stringify(prior.browsers)===JSON.stringify(current.browsers);
-    const report={checkedAt:new Date().toISOString(),...current,browserProcessUnchanged:prior?!!same:null};
+    const same=prior?.browsers.length?JSON.stringify(prior.browsers)===JSON.stringify(current.browsers):null;
+    const report={checkedAt:new Date().toISOString(),...current,browserProcessUnchanged:same};
     const line=JSON.stringify(report)+'\n';process.stdout.write(line);if(output)fs.appendFileSync(output,line,{encoding:'utf8'});
     prior=current;if(Date.now()>=end)break;await new Promise(resolve=>setTimeout(resolve,5000));
   }while(true);
