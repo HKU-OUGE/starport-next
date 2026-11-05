@@ -1,5 +1,6 @@
 ﻿param([Parameter(Mandatory=$true)][string]$Root,[ValidateSet('register','remove')][string]$Action='register')
 $ErrorActionPreference='Stop'
+trap { Write-Output ('integration_failed: '+$_.Exception.Message); Write-Output $_.InvocationInfo.PositionMessage; exit 1 }
 $r=Get-Content -LiteralPath (Join-Path $Root 'installation.json') -Raw -Encoding UTF8|ConvertFrom-Json
 if($r.format -ne 'starport-installation' -or $r.root -ne $Root -or $r.id -notmatch '^[a-f0-9]{32}$'){throw 'installation_ownership_mismatch'}
 $reg='HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\StarportNext-'+$r.id

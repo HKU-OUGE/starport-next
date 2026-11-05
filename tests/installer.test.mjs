@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import crypto from 'node:crypto';import {spawnSync} from 'node:child_process';
-import {VERSION,validatePlan as nativeValidatePlan,publicPlan} from '../packages/installer/plan.mjs';import {createInstaller as nativeCreateInstaller} from '../packages/installer/installation.mjs';import {payload,acquireLock} from '../packages/installer/owned-files.mjs';import {serveInstaller} from '../packages/installer/server.mjs';import {parseSubscription} from '../packages/installer/subscription.mjs';
+import {VERSION,validatePlan as nativeValidatePlan,publicPlan} from '../packages/installer/plan.mjs';import {createInstaller as nativeCreateInstaller} from '../packages/installer/installation.mjs';import {payload,acquireLock,claim} from '../packages/installer/owned-files.mjs';import {serveInstaller} from '../packages/installer/server.mjs';import {parseSubscription} from '../packages/installer/subscription.mjs';
 const installerPlatform=process.platform==='win32'?'win32':'linux';
 const validatePlan=value=>nativeValidatePlan(value,installerPlatform),createInstaller=options=>nativeCreateInstaller({...options,platform:installerPlatform});
 const core={features:{workspace:false,clients:false,inputMethod:false}};
@@ -60,4 +60,12 @@ test('verified downloads resume the existing partial file and reject corrupt byt
  const {source}=fixture(t),file=path.join(source,'download'),content=Buffer.from('complete release artifact'),digest=crypto.createHash('sha256').update(content).digest('hex');fs.writeFileSync(file+'.partial',content.subarray(0,8));const {downloadVerified}=await import('../packages/installer/download.mjs');let ranges=[];
  await downloadVerified('https://example.com/asset',file,digest,{fetcher:async(_url,o)=>{ranges.push(o.headers.Range);return new Response(content.subarray(8),{status:206,headers:{'content-range':'bytes 8-24/25','content-length':content.length-8}});}});assert.deepEqual(fs.readFileSync(file),content);assert.deepEqual(ranges,['bytes=8-']);
  await assert.rejects(downloadVerified('https://example.com/asset',file+'-bad',digest,{fetcher:async()=>new Response('corrupt')}),/checksum/);assert.equal(fs.existsSync(file+'-bad'),false);
+});
+
+test('Windows installer registers and removes owned menus under a Unicode path',{skip:process.platform!=='win32'},t=>{
+ const {root}=fixture(t);claim(root);fs.mkdirSync(path.join(root,'runtime'),{recursive:true});fs.copyFileSync(process.execPath,path.join(root,'runtime/node.exe'));
+ fs.mkdirSync(path.join(root,'app/packages/installer'),{recursive:true});fs.writeFileSync(path.join(root,'app/packages/installer/cli.mjs'),'// fixture');
+ for(const action of ['register','register','remove']){
+  const r=spawnSync('powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-File',path.resolve('packages/installer/integration.ps1'),'-Root',root,'-Action',action],{encoding:'utf8',windowsHide:true});assert.equal(r.status,0,r.stdout+r.stderr);
+ }
 });
