@@ -1,9 +1,11 @@
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {error,read,run,cleanEnv} from '../runtime/common.mjs';
+import {createLinuxServices} from './linux-services.mjs';
 
 const script=fileURLToPath(new URL('../../scripts/register-startup.ps1',import.meta.url));
 export function createServices(state,configurationFile,{platform=process.platform,execute=run}={}) {
+  if(platform==='linux')return createLinuxServices(state,configurationFile,{execute});
   let cached,updated=0,busy=false;
   async function registration(action='status') {
     if(platform!=='win32'||!configurationFile)throw error('local_windows_installation_required');

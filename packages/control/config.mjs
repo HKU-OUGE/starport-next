@@ -15,6 +15,12 @@ export function loadControlOptions(file){
   };
   if(!c||c.format!=='starport-host-control'||c.version!==1)throw error('invalid_control_configuration');
   const o={port:c.port??18884,wslState:resolve(c.wslState||'wsl'),configurationFile:path.resolve(file)};
+  if(c.runtime!==undefined&&(!c.runtime||typeof c.runtime!=='object'||!['qemu','wsl2'].includes(c.runtime.kind)))throw error('invalid_workspace_runtime');
+  o.runtimeKind=c.runtime?.kind||(process.platform==='win32'?'wsl2':'qemu');
+  o.qemuState=resolve(c.runtime?.kind==='qemu'?(c.runtime.state||'qemu'):'qemu');
+  if(c.runtime?.kind==='wsl2')o.wslState=resolve(c.runtime.state||c.wslState||'wsl');
+  if(c.seamless!==undefined&&typeof c.seamless!=='boolean')throw error('invalid_seamless_configuration');
+  o.seamless=c.seamless===true;
   if(c.wslg!==undefined&&typeof c.wslg!=='boolean')throw error('invalid_wslg_configuration');
   o.wslg=c.wslg===true;
   if(!Number.isInteger(o.port)||o.port<1024||o.port>65535)throw error('invalid_control_port');

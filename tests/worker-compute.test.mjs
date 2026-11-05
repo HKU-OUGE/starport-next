@@ -10,7 +10,7 @@ import {createCompute} from '../packages/control/compute.mjs';
 const limits={cpus:8,memory_gib:16,gpus:4,timeout:3600,parallel:4},token='example-bridge-token-'.repeat(3);
 const payload={entry:'main.py',files:{'main.py':Buffer.from('print("ok")').toString('base64')},cpus:1,memory_gib:2,gpus:0,timeout:60};
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
-function temporary(t){const d=fs.mkdtempSync(path.join(os.tmpdir(),'starport-pi-bridge-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));return d;}
+function temporary(t){const d=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-pi-bridge-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));return d;}
 function fake(){
   const calls=[],jobs=new Map();let n=0;
   const factory=workspace=>({async call(op,args={}){

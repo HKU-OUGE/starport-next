@@ -2,7 +2,7 @@ import {launchLocalClient} from '../packages/control/client-launcher.mjs';
 try{
   const args=process.argv.slice(2),options={};
   for(let i=0;i<args.length;i+=2){
-    if(!['--state','--workspace','--app'].includes(args[i])||!args[i+1])throw Error('invalid_arguments');
+    if(!['--state','--workspace','--app','--display'].includes(args[i])||!args[i+1])throw Error('invalid_arguments');
     options[args[i].slice(2)]=args[i+1];
   }
   if(!options.state)throw Error('control_state_required');

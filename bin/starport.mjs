@@ -16,6 +16,9 @@ import { startHostControl } from '../packages/control/server.mjs';
 import { loadControlOptions } from '../packages/control/config.mjs';
 import { installWsl,updateWslRuntime } from '../packages/wsl/runtime.mjs';
 import { installWslClients,configureWslClients } from '../packages/wsl/clients.mjs';
+import {installLinuxProject} from '../packages/linux/install.mjs';
+import {linuxShortcuts} from '../packages/linux/shortcuts.mjs';
+import {createLinuxServices} from '../packages/control/linux-services.mjs';
 import { privateDir } from '../packages/runtime/common.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -47,6 +50,10 @@ const help = `Starport Next — 配置与部署规划工具
 
   starport control serve --state private/control --config private/host-control.json
   starport control init --out private/host-control.json
+  starport linux install --config private/host-control.json
+  starport linux update-runtime --config private/host-control.json
+  starport linux services enable --state private/control --config private/host-control.json
+  starport linux shortcuts register --state private/control --seamless
   starport wsl install --state private/wsl --rootfs ubuntu.tar.gz --sha256 SHA256
   starport wsl clients-install --state private/wsl --config private/host-control.json
   starport wsl clients-configure --state private/wsl
@@ -61,7 +68,7 @@ function argumentsFor(args, accepted) {
   while (args.length) {
     const name = args.shift();
     if (!accepted.includes(name) || Object.hasOwn(out, name)) fail('unknown_or_duplicate_option');
-    if (['--include-secrets','--ephemeral','--replace'].includes(name)) out[name] = true;
+    if (['--include-secrets','--ephemeral','--replace','--seamless'].includes(name)) out[name] = true;
     else {
       const value = args.shift();
       if (!value || value.startsWith('--')) fail('option_value_required');
@@ -107,7 +114,7 @@ async function main() {
     const action=args.shift();
     if(action==='init'){
       const a=argumentsFor(args,['--out']),file=path.resolve(required(a,'--out'));privateDir(path.dirname(file));
-      fs.writeFileSync(file,JSON.stringify({format:'starport-host-control',version:1,port:18884,wslState:'wsl'},null,2)+'\n',{flag:'wx',mode:0o600});
+      fs.writeFileSync(file,JSON.stringify({format:'starport-host-control',version:1,port:18884,...(process.platform==='win32'?{wslState:'wsl'}:{runtime:{kind:'qemu',state:'qemu'},seamless:false})},null,2)+'\n',{flag:'wx',mode:0o600});
       return show({created:true,egress:'closed',servers:'unconfigured'});
     }
     if(action!=='serve')fail('unknown_control_command');
@@ -126,6 +133,26 @@ async function main() {
     show({url:service.url,phase:service.phase,platform:service.platform});
     let stopping=false;const stop=async()=>{if(stopping)return;stopping=true;await service.close();};
     process.on('SIGINT',stop);process.on('SIGTERM',stop);return;
+  }
+  if(command==='linux'){
+    if(process.platform!=='linux')fail('linux_host_required');
+    const action=args.shift();
+    if(['install','clients-install','update-runtime'].includes(action)){
+      const a=argumentsFor(args,['--config','--cpus','--memory-mib','--disk-gib']);
+      return show(await installLinuxProject(loadControlOptions(required(a,'--config')),{update:action==='update-runtime',repairClients:action==='clients-install',onProgress:show,
+        cpus:Number(a['--cpus']||2),memoryMiB:Number(a['--memory-mib']||4096),diskGiB:Number(a['--disk-gib']||16)}));
+    }
+    if(action==='services'){
+      const operation=args.shift(),a=argumentsFor(args,['--state','--config']);
+      const services=createLinuxServices(required(a,'--state'),required(a,'--config'));
+      return show(operation==='plan'?services.plan():operation==='status'?await services.status():await services.action(operation));
+    }
+    if(action==='shortcuts'){
+      const operation=args.shift(),a=argumentsFor(args,['--state','--workspace','--seamless']);
+      if(!['register','remove'].includes(operation))fail('invalid_shortcut_action');
+      return show(linuxShortcuts(required(a,'--state'),{workspace:a['--workspace']||'main',seamless:Boolean(a['--seamless']),remove:operation==='remove'}));
+    }
+    fail('unknown_linux_command');
   }
   if(command==='wsl'){
     const action=args.shift();

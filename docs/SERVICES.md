@@ -1,4 +1,4 @@
-# Windows 登录启动与服务管理
+# 登录启动与服务管理
 
 Windows 版本提供当前用户的后台守护程序，同时管理控制面板和独立计算连接。
 它在当前用户登录后运行，使用该用户已经安装的 WSL2 发行版；不是登录前运行的
@@ -66,3 +66,23 @@ SDK、终端或原生客户端。不会在登录时自动调用模型、弹出�
 读取本部署的禁用标记，用户明确点击启用后才恢复它。
 
 Windows Startup 文件夹机制见 [Microsoft 官方说明](https://support.microsoft.com/en-gb/windows/experience/startup-boot/configure-startup-applications-in-windows)。
+
+## Linux 当前用户服务
+
+Linux 使用 systemd 用户单元。虚拟机、面板、每个计算连接分别管理；重启面板不停止虚拟机，也不重新提交远端任务。本机项目的控制管道关闭时，其本机操作仍会结束。
+
+```sh
+node bin/starport.mjs linux services plan --state private/control --config private/host-control.json
+node bin/starport.mjs linux services enable --state private/control --config private/host-control.json
+node bin/starport.mjs linux services status --state private/control --config private/host-control.json
+```
+
+`enable` 注册并安排下次用户登录启动，不停止现有手动进程。若需要立即切换，先关闭本安装的项目应用和手动控制端，再执行：
+
+```sh
+node bin/starport.mjs linux services start --state private/control --config private/host-control.json
+```
+
+每个单元带安装摘要，收据位于 `private/control/linux-services.json`。只管理当前用户的本安装单元；不保存系统密码，不开启 linger，不要求系统 root 服务。若没有桌面登录，网页功能可工作，但无缝窗口需要 X11/XWayland 会话。桌面管理器通常会导入显示变量；必要时在登录会话执行 `systemctl --user import-environment DISPLAY XAUTHORITY XDG_RUNTIME_DIR`，再启动本安装服务。
+
+`disable` 只禁用下次启动。卸载先用 `plan` 核对单元名，按控制端、计算连接、虚拟机的顺序停止本安装单元，再执行 `unregister`；存在活动单元或文件内容被修改时拒绝删除。所有这些命令都需要同一组 `--state` 和 `--config`。整机重启验收需单独进行，不能用单元注册成功替代。

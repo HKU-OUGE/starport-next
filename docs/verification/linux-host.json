@@ -1,0 +1,39 @@
+{
+  "format": "starport-acceptance-summary",
+  "date": "2026-11-05",
+  "platform": "Ubuntu 24.04 x86_64 with KVM",
+  "runtime": "separate owned QEMU VM and per-project namespaces",
+  "actualChecks": {
+    "projectFileHashRoundTrip": true,
+    "projectCommand": true,
+    "hostHomeAndCredentialsAbsent": true,
+    "privateProcessView": true,
+    "directIpv4Ipv6DnsAndMetadataDenied": true,
+    "controlledHttps": true,
+    "proxyPauseDeniedAndNoFallback": true,
+    "projectSftpReadWrite": true,
+    "sftpOutsideSymlinkDenied": true,
+    "vmRestartBoundaryReverification": true,
+    "xpraConnectionAcknowledged": true,
+    "xpraCodeDesktopBrowserProcesses": true,
+    "xpraTwoStartStopCycles": true,
+    "neutralClientDisplayMetadata": true,
+    "webDesktopCliRendered": true,
+    "systemdUnitsParsedAndStarted": true,
+    "controlProcessFailureRecovered": true,
+    "vmUnaffectedByControlRecovery": true,
+    "testUserUnitsRemoved": true,
+    "desktopEntriesValidatedAndRemoved": true,
+    "mobile390pxNoHorizontalOverflow": true
+  },
+  "unverified": [
+    "official account authorization and conversations",
+    "paid API model call on the new Linux adapter",
+    "actual Linux remote GPU task",
+    "physical phone",
+    "host cold boot or logout-login",
+    "manual visual acceptance of every native Xpra window and shortcut",
+    "other Xpra series and non-X11 Linux desktops"
+  ],
+  "scope": "sanitized-summary-not-a-portable-runtime-authorization"
+}

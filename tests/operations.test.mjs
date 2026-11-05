@@ -92,6 +92,6 @@ test('stale supervisor receipts never report a running service; unsupported host
     const manager=createServices(state,'synthetic.json',{platform:'win32',execute:async()=>({code:0,stdout:'{"registered":true,"enabled":true}'})});
     const s=await manager.status();assert.equal(s.supervisor.phase,'stopped');assert.equal(s.services[0].phase,'unknown');assert.equal(s.services[0].private,undefined);
     await assert.rejects(manager.action('delete'),/invalid_service_action/);
-    await assert.rejects(createServices(state,'synthetic.json',{platform:'linux'}).action('enable'),/local_windows_installation/);
+    await assert.rejects(createServices(state,'synthetic.json',{platform:'darwin'}).action('enable'),/local_windows_installation/);
   }finally{fs.rmSync(state,{recursive:true,force:true});}
 });

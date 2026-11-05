@@ -11,7 +11,7 @@ const uuid=()=>crypto.randomUUID();
 const sdkId='12345678-1234-1234-1234-123456789abc';
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function fixture(t){
-  const state=fs.mkdtempSync(path.join(os.tmpdir(),'starport-sessions-'));t.after(()=>fs.rmSync(state,{recursive:true,force:true}));
+  const state=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-sessions-'));t.after(()=>fs.rmSync(state,{recursive:true,force:true}));
   const calls=[],running=new Map();let permitted=true;
   const runtime={status:()=>({active:[...running].map(([workspace])=>({workspace,operation:'sdk'}))}),
     execute(workspace,request,options){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});
@@ -86,7 +86,7 @@ test('verification, malformed history and path traversal fail closed',t=>{
 });
 
 test('session HTTP routes require authentication, Origin and CSRF, with idempotent creation',async t=>{
-  const state=fs.mkdtempSync(path.join(os.tmpdir(),'starport-chat-http-'));
+  const state=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-chat-http-'));
   const egress={enabled:true,modelReady:false,proxyPort:9,apiPort:9,pause(){},resume(){},close(){}};
   const control=await startHostControl(state,{port:0,testEgress:egress});t.after(()=>{control.close();fs.rmSync(state,{recursive:true,force:true});});
   const base=control.url.slice(0,-1),key=JSON.parse(fs.readFileSync(path.join(state,'panel-key.json'))).key;

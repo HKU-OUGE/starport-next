@@ -63,7 +63,7 @@ async function download(url,file,expected,onProgress,installerProxy) {
     fs.renameSync(temp,file);
   }catch(e){try{fs.closeSync(fd);}catch{}fs.rmSync(temp,{force:true});throw e;}
 }
-export async function prepare(state,{cpus=2,memoryMiB=2048,diskGiB=8,ephemeral=false,onProgress,installerProxy}={}) {
+export async function prepare(state,{cpus=2,memoryMiB=2048,diskGiB=8,ephemeral=false,onProgress,installerProxy,projectRuntime=false}={}) {
   const d=doctor();if(!d.ready)throw error('runtime_prerequisites_missing');
   if(!Number.isInteger(cpus)||cpus<1||cpus>32||!Number.isInteger(diskGiB)||diskGiB<4||diskGiB>256)throw error('invalid_resource_budget');
   checkMemory(memoryMiB);state=privateDir(state);
@@ -88,7 +88,7 @@ export async function prepare(state,{cpus=2,memoryMiB=2048,diskGiB=8,ephemeral=f
     }
     const hostPublic=fs.readFileSync(path.join(state,'host-key.pub'),'utf8').trim();
     seedIso(path.join(state,'seed.iso'),{
-      'user-data':cloudConfig({publicKey:fs.readFileSync(path.join(state,'identity.pub'),'utf8').trim(),hostPrivate:fs.readFileSync(path.join(state,'host-key'),'utf8'),hostPublic}),
+      'user-data':cloudConfig({publicKey:fs.readFileSync(path.join(state,'identity.pub'),'utf8').trim(),hostPrivate:fs.readFileSync(path.join(state,'host-key'),'utf8'),hostPublic,projectRuntime}),
       'meta-data':JSON.stringify({'instance-id':'starship-'+crypto.randomBytes(8).toString('hex'),'local-hostname':'starship'}),
       'network-config':JSON.stringify({version:2,ethernets:{primary:{match:{name:'en*'},dhcp4:true,dhcp6:false,'dhcp4-overrides':{'use-dns':false,'use-domains':false},nameservers:{addresses:['127.0.0.1']}}}})
     });
@@ -96,7 +96,7 @@ export async function prepare(state,{cpus=2,memoryMiB=2048,diskGiB=8,ephemeral=f
     if(disk.code!==0)throw error('workspace_disk_creation_failed');
     writePrivate(path.join(state,'known_hosts'),'starship '+hostPublic+'\n');
     fs.rmSync(path.join(state,'host-key')); // Only the guest seed needs its server private key.
-    writePrivate(path.join(state,'machine.json'),{format:1,host:d.host,firmware:d.firmware,vmId:crypto.randomUUID(),cpus,memoryMiB,diskGiB,ephemeral,imageSha256:expected,
+    writePrivate(path.join(state,'machine.json'),{format:1,host:d.host,firmware:d.firmware,vmId:crypto.randomUUID(),cpus,memoryMiB,diskGiB,ephemeral,projectRuntime,imageSha256:expected,
       imageSource:base+name,createdAt:new Date().toISOString()});
     return {prepared:true,ephemeral,cpus,memoryMiB,diskGiB,imageVerified:true};
   }finally{fs.rmSync(path.join(state,'prepare.lock'),{force:true});}

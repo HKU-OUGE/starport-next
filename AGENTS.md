@@ -2,7 +2,7 @@
 
 Read [README.md](README.md), [CONTEXT.md](CONTEXT.md), and [SECURITY.md](SECURITY.md).
 The current release includes portable configuration, local QEMU workspaces, and a
-Windows/WSL2 control plane with web project desktops and optional WSLg clients. Consult
+Windows/WSL2 and Linux/QEMU control planes with web desktops, optional WSLg or Xpra windows. Consult
 [ROADMAP.md](docs/ROADMAP.md) before claiming that an adapter is implemented.
 
 - Configuration setup/import: read [the setup skill](skills/starport-setup/SKILL.md).
@@ -14,7 +14,8 @@ Windows/WSL2 control plane with web project desktops and optional WSLg clients. 
 - Local runtime setup and testing: [LOCAL-RUNTIME.md](docs/LOCAL-RUNTIME.md).
 - Windows control plane and WSL2 projects: [WINDOWS-HOST.md](docs/WINDOWS-HOST.md).
 - Independent remote compute and Claude task usage: [COMPUTE.md](docs/COMPUTE.md).
-- Windows login startup and owned service supervision: [SERVICES.md](docs/SERVICES.md).
+- Linux control plane and seamless windows: [LINUX-HOST.md](docs/LINUX-HOST.md).
+- Windows/Linux login startup and owned service supervision: [SERVICES.md](docs/SERVICES.md).
 - Multiple compute nodes and fixed job ownership: [MULTI-SERVER.md](docs/MULTI-SERVER.md).
 - Read-only dependency/data publication: [DEPENDENCIES.md](docs/DEPENDENCIES.md).
 - Local domain/email configuration and public acceptance: [REMOTE-ACCESS.md](docs/REMOTE-ACCESS.md).

@@ -13,21 +13,22 @@
 | 3. 项目与依赖 | 项目、依赖版本、模型 | 持久工作区、只读依赖和独立新增依赖层 |
 | 4. 远程访问 | Cloudflare Token、域名、邮箱 | Tunnel、Access、权限与重连验证 |
 
-**当前交付：配置工具、本地隔离工作区与控制面板。** 已实现加密导入／导出、Pi v1 配置迁移、QEMU 工作区、专用出口、文件操作与官方 Agent SDK 接入。新增 Windows 原生控制端、WSL2 项目接入层、文件面板和既有训练 API 适配；验证边界见[验收记录](docs/ACCEPTANCE.md)。账号 CLI／Desktop 的 guest 安装和画面入口见[官方账号客户端](docs/NATIVE-CLIENTS.md)。API 网页会话见[会话管理](docs/SESSIONS.md)；逐工具审批、附件和远端 DSW 自动部署仍按[实施路线](docs/ROADMAP.md)推进。
+**当前交付：配置工具、本地隔离工作区与控制面板。** 已实现加密导入／导出、Pi v1 配置迁移、QEMU 工作区、专用出口、文件操作与官方 Agent SDK 接入。提供 Windows／WSL2 和 Linux／QEMU 的统一面板、文件、会话、项目桌面和训练 API 接入；验证边界见[验收记录](docs/ACCEPTANCE.md)。账号 CLI／Desktop 的 guest 安装和画面入口见[官方账号客户端](docs/NATIVE-CLIENTS.md)。API 网页会话见[会话管理](docs/SESSIONS.md)；逐工具审批、附件和远端 DSW 自动部署仍按[实施路线](docs/ROADMAP.md)推进。
 
 订阅附送的 API 额度适用于自建工作台的 Agent SDK 会话；原生 Desktop 的 Code 会话另按其适用方式计费。[入口与额度](docs/DESIGN.md#入口与额度)
 
 Windows 优先采用 **主系统管理网络与服务器，WSL2 执行项目程序**。主系统可以读写项目文件，工作区不挂载 Windows 文件。已提供 Claude Code、Agent SDK、Linux Desktop 与浏览器安装入口；独立 WSLg 窗口需显式开启，并与 Windows 共享显示和剪贴板。安装与访问码窗口见 [Windows 控制端](docs/WINDOWS-HOST.md)，兼容性和待验证项见 [WSL2 评估](docs/WSL2-ASSESSMENT.md)。
 
+Linux 使用独立 QEMU 虚拟机接入同一面板，可选择网页桌面或 **Xpra 无缝窗口**；后者默认关闭剪贴板与文件传输。项目可通过文件管理器读写，宿主目录不会共享给项目。[Linux 安装与入口](docs/LINUX-HOST.md)。macOS 当前仍使用原 QEMU 命令行路线，未完成同级桌面集成。
+
 面板采用左侧导航，支持[多服务器](docs/MULTI-SERVER.md)分别监控、筛选任务和暂停接单。
 [远程访问页](docs/REMOTE-ACCESS.md)可设置已有 Cloudflare Access 的域名、邮箱和 Tunnel。
-同一入口可打开 WSL2 项目桌面操作 Claude Code CLI／Desktop，或在「会话」中直接对话、查看工具结果、续接历史和停止 Agent SDK；账号认证各自独立。
+同一入口可打开独立项目桌面操作 Claude Code CLI／Desktop，或在「会话」中直接对话、查看工具结果、续接历史和停止 Agent SDK；账号认证各自独立。
 启用 WSLg 的 Windows 安装会创建浏览器、Claude Desktop 和 Claude Code 的桌面／开始菜单
 快捷方式，通过控制端进入项目；不要直接使用发行版的 `wslg.exe` 自动图标启动应用。
 快捷方式默认保留客户端原图标与名称；安装 skill 包含 WSLg／网页桌面的逐项回归清单。
 [依赖与数据](docs/DEPENDENCIES.md)页可发布环境、数据目录的固定只读版本，供 Claude 任务选择。
-服务器任务面板提供资源概况、筛选、日志、产物下载和取消；服务页可注册 Windows
-登录启动。Claude Code／Desktop 通过项目计算 MCP 接入远端任务，项目内自动生成
+服务器任务面板提供资源概况、筛选、日志、产物下载和取消；服务页可注册 Windows／Linux 当前用户登录启动。Claude Code／Desktop 通过项目计算 MCP 接入远端任务，项目内自动生成
 `AGENTS.md` 和 `CLAUDE.md`。配置页可加密导出、预览并导入到新配置；不自动切换当前安装。
 官方账号登录及 Desktop 真实对话验收仍独立记录。
 
@@ -77,7 +78,8 @@ node bin/starport.mjs local chat --state private/local-workspace --prompt-file p
 | [复用计划](docs/REUSE.md) | 从既有网络、会话与算力实现提取什么 |
 | [验收矩阵](docs/ACCEPTANCE.md) | 哪些已测，哪些必须在目标机器验收 |
 | [独立计算资源](docs/COMPUTE.md) | SSH／DSW worker、CPU／GPU 任务与 Claude 调用 |
-| [后台服务](docs/SERVICES.md) | Windows 登录启动、进程恢复与服务管理 |
+| [Linux 控制端](docs/LINUX-HOST.md) | QEMU 项目、Xpra 无缝窗口、文件管理器 |
+| [后台服务](docs/SERVICES.md) | Windows／Linux 登录启动、进程恢复与服务管理 |
 | [多服务器](docs/MULTI-SERVER.md) | 节点登记、默认服务器与任务归属 |
 | [远程访问](docs/REMOTE-ACCESS.md) | 域名、邮箱、Access 与 Tunnel 设置 |
 | [Agent 入口](AGENTS.md) | 安装、开发和接手指引 |

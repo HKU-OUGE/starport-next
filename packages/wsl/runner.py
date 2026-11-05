@@ -97,7 +97,7 @@ def prepare_workspace(base, name, uid=UID):
     return workspace
 
 
-def sandbox_args(workspace, runtime, etc, code, uid=UID, seccomp_fd=None, gui=False, remote=False):
+def sandbox_args(workspace, runtime, etc, code, uid=UID, seccomp_fd=None, gui=False, remote=False, seamless=False):
     args = ['/usr/bin/bwrap', '--unshare-all', '--unshare-user',
             '--die-with-parent', '--new-session', '--hostname', 'starship',
             '--uid', str(uid), '--gid', str(uid), '--cap-drop', 'ALL',
@@ -137,6 +137,8 @@ def sandbox_args(workspace, runtime, etc, code, uid=UID, seccomp_fd=None, gui=Fa
                  '--tmpfs', '/tmp/.X11-unix',
                  '--setenv', 'XDG_RUNTIME_DIR', '/run/user/1000',
                  '--setenv', 'DISPLAY', ':1', '--setenv', 'STARPORT_REMOTE_DISPLAY', '1']
+        if seamless:
+            args += ['--setenv', 'STARPORT_SEAMLESS_DISPLAY', '1']
     elif gui:
         wayland = pathlib.Path('/mnt/wslg/runtime-dir/wayland-0')
         x11 = pathlib.Path('/tmp/.X11-unix/X0')
@@ -169,7 +171,7 @@ def serve(base=BASE, code=CODE):
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     if operation not in ['exec', 'files', 'native', 'sdk']:
         raise ValueError('invalid_operation')
-    remote = operation == 'native' and request.get('display') == 'remote'
+    remote = operation == 'native' and request.get('display') in ('remote', 'seamless')
     if operation == 'native' and not remote and request.get('wslg') is not True:
         raise ValueError('wslg_authorization_required')
     if request['operation'] == 'exec':
@@ -243,7 +245,7 @@ def serve(base=BASE, code=CODE):
             # controller identity before exec, so UID 1000 also owns the private
             # project on the distribution side and never maps to host root.
             identity = {'user': UID, 'group': UID, 'extra_groups': ()} if os.geteuid() == 0 else {}
-            child = subprocess.Popen(sandbox_args(workspace, runtime, code / 'etc', code / 'public', seccomp_fd=policy_fd, gui=operation == 'native', remote=remote),
+            child = subprocess.Popen(sandbox_args(workspace, runtime, code / 'etc', code / 'public', seccomp_fd=policy_fd, gui=operation == 'native', remote=remote, seamless=request.get('display')=='seamless'),
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE, env={'PATH': '/usr/bin:/bin'},
                                      pass_fds=(policy_fd,), start_new_session=True, **identity)

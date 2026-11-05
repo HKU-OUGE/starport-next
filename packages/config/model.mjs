@@ -96,8 +96,10 @@ export function validateConfig(input) {
   object(input.extensions, ['stagedRef','enableAfterReview']);
   if (!(input.extensions.stagedRef === null || reference(input.extensions.stagedRef)) || input.extensions.enableAfterReview !== false) fail('invalid_extensions');
   if(input.workspace!==undefined){
-    object(input.workspace,['kind','wslg']);
-    if(input.workspace.kind!=='wsl2'||typeof input.workspace.wslg!=='boolean')fail('invalid_workspace_preferences');
+    object(input.workspace,['kind','wslg','seamless']);
+    if(!['wsl2','qemu'].includes(input.workspace.kind))fail('invalid_workspace_preferences');
+    if(input.workspace.kind==='wsl2'&&typeof input.workspace.wslg!=='boolean')fail('invalid_workspace_preferences');
+    if(input.workspace.seamless!==undefined&&typeof input.workspace.seamless!=='boolean')fail('invalid_workspace_preferences');
   }
   function computePolicy(p){
     object(p,['cpus','memoryGiB','gpus','timeout','parallel']);

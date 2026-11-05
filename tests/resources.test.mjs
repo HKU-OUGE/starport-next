@@ -10,7 +10,7 @@ import {startHostControl} from '../packages/control/server.mjs';
 const id='a'.repeat(32),version='b'.repeat(64),token='example-resource-token-'.repeat(3);
 const row={id,version,kind:'python',name:'Python fixture',phase:'ready',python_entry:'bin/python',source:'/private-source',publisher_pid:123};
 const limits={cpus:2,memory_gib:4,gpus:0,timeout:120,parallel:null};
-function temp(t){const d=fs.mkdtempSync(path.join(os.tmpdir(),'starport-resource-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));return d;}
+function temp(t){const d=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-resource-'));t.after(()=>fs.rmSync(d,{recursive:true,force:true}));return d;}
 test('resource catalog strips private fields, stays node-scoped and refuses project management',async t=>{
   const calls=[],remoteFactory=()=>({async call(op,input){calls.push([op,input]);if(op==='resource.list')return {resources:[row,{...row,id:'c'.repeat(32),phase:'disabled'}]};if(op==='health')return {ready:true,egress_ready:true,cpus:2,memory_gib:4,gpus:0};if(op==='resource.register')return {...row,...input,phase:'publishing'};throw Error('unexpected_rpc');}});
   const bridge=await createWorkerComputeBridge({state:temp(t),token,binding:'one',remoteFactory,limits});t.after(()=>bridge.close());
@@ -25,7 +25,7 @@ test('resource catalog strips private fields, stays node-scoped and refuses proj
   assert.equal((await request('/resources/auto-conda',{})).status,403);
   assert.match((await(await request('/resources?node=absent')).json()).error,/not_configured/);
   assert.equal(calls.some(([op])=>op==='resource.register'),false);
-  const state=fs.mkdtempSync(path.join(os.tmpdir(),'starport-resource-control-')),s=await startHostControl(state,{port:0,computeNodes:connections,defaultComputeNode:'primary'});t.after(async()=>{await s.close();fs.rmSync(state,{recursive:true,force:true});});
+  const state=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-resource-control-')),s=await startHostControl(state,{port:0,computeNodes:connections,defaultComputeNode:'primary'});t.after(async()=>{await s.close();fs.rmSync(state,{recursive:true,force:true});});
   assert.equal((await fetch(s.url+'api/resources')).status,403);
   const key=JSON.parse(fs.readFileSync(path.join(state,'panel-key.json'),'utf8')).key;
   const headers={origin:s.url.slice(0,-1),'content-type':'application/json'};

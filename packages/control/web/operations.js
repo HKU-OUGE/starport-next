@@ -114,10 +114,10 @@ export function initOperations({api,problem,action,el}) {
     $('startup-status').textContent=!serviceState.supported?'当前平台不支持':serviceState.error?'注册状态不可用':serviceState.startup.enabled?'登录启动已启用':'登录启动未启用';
     $('startup-toggle').textContent=serviceState.startup?.enabled?'禁用登录启动':'启用登录启动';
     const registered=serviceState.startup?.enabled,known=serviceState.services||[];
-    const serviceRows=[['守护程序',serviceState.supervisor?.phase||'stopped',registered?'当前用户登录':'手动','Windows'],
+    const serviceRows=[['服务管理',serviceState.supervisor?.phase||'stopped',registered?'当前用户登录':'手动',current.control.platform==='linux'?'systemd 用户服务':'Windows'],
       ['控制面板','running',registered?'守护恢复':'手动','受控出口'],
       ...(current?.compute.nodes||[]).filter(n=>!n.removed).map(n=>[n.name,known.find(s=>s.id==='compute-'+n.id||n.id==='primary'&&s.id==='compute')?.phase||(n.ready?'running':'unknown'),known.some(s=>s.id==='compute-'+n.id||n.id==='primary'&&s.id==='compute')&&registered?'守护恢复':'独立运行','计算连接']),
-      ['WSL2 工作区',current?.runtime.installed?'installed':'stopped','按需启动','边界验证']];
+      [current?.runtime.kind==='qemu'?'QEMU 工作区':'WSL2 工作区',current?.runtime.installed?'installed':'stopped','按需启动','边界验证']];
     $('services').replaceChildren(...serviceRows.map(([name,state,mode,dependency])=>{const tr=el('tr'),td=el('td');td.append(badge(state==='installed'?'已安装':labels[state]||state,state));tr.append(el('td',name),td,el('td',mode),el('td',dependency));return tr;}));
     overview();
   }

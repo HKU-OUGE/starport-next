@@ -48,3 +48,14 @@ separate from local removal and requires authorization for those exact resources
 Default to preserving project files and encrypted backups. Offer a separate
 explicit choice for permanent data removal. Report verified removal and any
 remaining objects without claiming success from a missing local directory alone.
+
+## Linux panel removal
+
+Read [LINUX-HOST.md](../../docs/LINUX-HOST.md) and inspect `linux-services.json`.
+Disable this deployment's login startup, stop its recorded units only after
+local work is idle, and run `linux services unregister`. Remove unchanged
+receipt-owned menu entries with `linux shortcuts remove`. Unmount each recorded
+project SSHFS directory with `fusermount3 -u` before deleting anything below it;
+never recursively delete a mounted project directory. Stop the exact owned QEMU
+VM and preserve its disk/project data unless explicitly included in the user's
+deletion scope. A shared Xpra, SSHFS or QEMU package is not owned by one deployment.

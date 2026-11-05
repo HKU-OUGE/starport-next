@@ -38,12 +38,12 @@ export function seedIso(file, files) {
   for(const item of items)item.data.copy(image,item.sector*BLOCK);
   fs.writeFileSync(file,image,{mode:0o600,flag:'wx'});
 }
-export function cloudConfig({ publicKey, hostPrivate, hostPublic }) {
+export function cloudConfig({ publicKey, hostPrivate, hostPublic, projectRuntime=false }) {
   const body = {
     hostname:'starship', manage_etc_hosts:true, timezone:'Asia/Taipei', locale:'C.UTF-8',
     users:[
-      {name:'control',uid:1000,shell:'/bin/bash',lock_passwd:true,sudo:['ALL=(ALL) NOPASSWD:ALL'],ssh_authorized_keys:[publicKey]},
-      {name:'agent',uid:1001,shell:'/bin/bash',lock_passwd:true,sudo:null,ssh_authorized_keys:[publicKey]}
+      {name:'control',uid:projectRuntime?1100:1000,shell:'/bin/bash',lock_passwd:true,sudo:['ALL=(ALL) NOPASSWD:ALL'],ssh_authorized_keys:[publicKey]},
+      {name:'agent',uid:projectRuntime?1000:1001,shell:'/bin/bash',lock_passwd:true,sudo:null,ssh_authorized_keys:[publicKey]}
     ],
     disable_root:true, ssh_pwauth:false, ssh_deletekeys:true,
     ssh_keys:{ed25519_private:hostPrivate,ed25519_public:hostPublic},
@@ -51,7 +51,7 @@ export function cloudConfig({ publicKey, hostPrivate, hostPublic }) {
     write_files:[
       {path:'/etc/ssh/sshd_config.d/00-starport.conf',permissions:'0644',content:'PasswordAuthentication no\nKbdInteractiveAuthentication no\nPermitRootLogin no\nAllowUsers control agent\nAcceptEnv LANG LC_*\nGatewayPorts no\nMatch User agent\n AllowTcpForwarding no\n AllowAgentForwarding no\n X11Forwarding no\n PermitTunnel no\n'},
       {path:'/etc/environment',permissions:'0644',content:'LANG=C.UTF-8\nTZ=Asia/Taipei\n'},
-      {path:'/etc/systemd/system/user-1001.slice.d/network.conf',permissions:'0644',content:'[Slice]\nIPAddressDeny=any\nIPAddressAllow=localhost\n'},
+      {path:'/etc/systemd/system/user-'+(projectRuntime?1000:1001)+'.slice.d/network.conf',permissions:'0644',content:'[Slice]\nIPAddressDeny=any\nIPAddressAllow=localhost\n'},
       {path:'/etc/systemd/timesyncd.conf.d/starport.conf',permissions:'0644',content:'[Time]\nNTP=\nFallbackNTP=\n'},
       {path:'/etc/cloud/cloud.cfg.d/99-starport-no-updates.cfg',permissions:'0644',content:'apt:\n  preserve_sources_list: true\npackage_update: false\npackage_upgrade: false\n'}
     ],

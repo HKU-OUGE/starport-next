@@ -7,7 +7,7 @@ import { privateDir,writePrivate,read,error } from '../runtime/common.mjs';
 import { managedProxy } from '../runtime/managed-proxy.mjs';
 import { createEgress,DEFAULT_HOSTS } from '../runtime/egress.mjs';
 import { NATIVE_HOSTS } from '../runtime/native.mjs';
-import { createWslRuntime } from '../wsl/runtime.mjs';
+import {createWorkspaceRuntime} from './workspace-runtime.mjs';
 import { createCompute,bodyJson,jsonResponse } from './compute.mjs';
 import { createAccess } from './access.mjs';
 import { startTunnel } from './tunnel.mjs';
@@ -21,14 +21,17 @@ import { loadControlOptions } from './config.mjs';
 import {createViewer,viewerAsset} from './viewer.mjs';
 import {webDocument} from './web-document.mjs';
 import {createSessions} from './sessions.mjs';
+import {createSeamless} from './seamless.mjs';
+import {openLinuxFolder} from './linux-folders.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
 const workspaceId=v=>typeof v==='string'&&/^[a-z][a-z0-9-]{0,47}$/.test(v);
 export async function startHostControl(state,options={}){
   state=privateDir(state);
   const lock=path.join(state,'control.lock');
-  try{fs.writeFileSync(lock,JSON.stringify({pid:process.pid}),{flag:'wx',mode:0o600});}catch{throw error('control_already_started_or_requires_reconciliation');}
-  let proxy,egress,compute,runtime,server,timer,tunnel,viewer,sessions;const computeSsh=[];
+  const bootId=process.platform==='linux'?fs.readFileSync('/proc/sys/kernel/random/boot_id','utf8').trim():undefined;
+  try{fs.writeFileSync(lock,JSON.stringify({pid:process.pid,bootId}),{flag:'wx',mode:0o600});}catch{throw error('control_already_started_or_requires_reconciliation');}
+  let proxy,egress,compute,runtime,server,timer,tunnel,viewer,sessions,seamless;const computeSsh=[];
   const workspaceFile=path.join(state,'workspaces.json');
   const workspaces=fs.existsSync(workspaceFile)?read(workspaceFile):['main'];
   if(!Array.isArray(workspaces)||workspaces.some(v=>!workspaceId(v)))throw error('invalid_workspace_registry');
@@ -51,9 +54,10 @@ export async function startHostControl(state,options={}){
     }
     compute=await createCompute({state,connections,defaultNode:options.defaultComputeNode});
     const jobs=createJobManagement(compute);
-    runtime=createWslRuntime(options.wslState||path.join(state,'wsl'),{launch:options.testLaunch,wslg:options.wslg===true,
+    runtime=await createWorkspaceRuntime(state,options,{
       destinations:{proxy:egress.proxyPort,model:egress.apiPort,compute:compute.port},
       capabilities:workspace=>({modelCapability:egress.modelReady?egress.capability:undefined,computeCapability:compute.capability(workspace)})});
+    if(process.platform==='linux'&&options.seamless)seamless=createSeamless(state,runtime);
     sessions=createSessions(state,{runtime,workspaces,model:options.model||'claude-haiku-5-5',authorize:workspace=>{
       if(verifying)throw error('workspace_verification_in_progress');
       const proof=runtime.reports.get(workspace);
@@ -217,12 +221,14 @@ export async function startHostControl(state,options={}){
           if(['exec','native','sdk','clients','open-folder','viewer-ticket'].includes(operation)){
             // Stopping an owned GUI session must remain possible during an idle
             // runtime upgrade, when its previous verification is already stale.
-            if(operation==='native'&&b.app==='stop'){await runtime.stopNative(_id);return json(res,200,{phase:'stopped'});}
+            if(operation==='native'&&b.app==='stop'){await seamless?.disconnect(_id);await runtime.stopNative(_id);return json(res,200,{phase:'stopped'});}
             const proof=runtime.reports.get(_id);
             if(!proof?.passed||proof.runtimeDigest!==runtime.digest()||Date.now()-Date.parse(proof.checkedAt)>86400000)throw error('workspace_verification_required');
             if(operation==='viewer-ticket')return json(res,200,viewer.ticket(_id,identity));
             if(operation==='open-folder'){
-              if(policy.mode!=='local'||process.platform!=='win32')throw error('local_windows_action_required');
+              if(policy.mode!=='local')throw error('local_host_action_required');
+              if(process.platform==='linux')return json(res,200,await openLinuxFolder(state,options.qemuState||path.join(state,'qemu'),_id));
+              if(process.platform!=='win32')throw error('local_host_action_unavailable');
               return json(res,200,await openWorkspaceFolder(options.wslState||path.join(state,'wsl'),_id));
             }
             if(operation==='clients'){
@@ -230,7 +236,10 @@ export async function startHostControl(state,options={}){
               if(r.code!==0)throw error('client_status_failed');return json(res,200,JSON.parse(r.stdout));
             }
             if(operation==='native'){
-              return json(res,200,await runtime.nativeAction(_id,b.app,b.display||'wslg'));
+              if(b.display==='seamless'&&(policy.mode!=='local'||!seamless))throw error('local_seamless_action_required');
+              const result=await runtime.nativeAction(_id,b.app,b.display||'remote');
+              if(b.display==='seamless')await seamless.connect(_id);
+              return json(res,200,result);
             }
             if(operation==='sdk'){
               if(!egress.modelReady)throw error('api_gateway_required');
@@ -256,6 +265,6 @@ export async function startHostControl(state,options={}){
     if(options.tunnel)tunnel=startTunnel(state,options.tunnel,options.access);
     const result={port,url:`http://127.0.0.1:${port}/`,phase:'running',platform:process.platform,pid:process.pid};
     writePrivate(path.join(state,'control.json'),result);
-    return {...result,runtime,egress,compute,async close(){clearInterval(timer);sessions.close();viewer.close();runtime.close();compute.close();computeSsh.forEach(s=>s.close());egress.close();proxy?.close();tunnel?.close();server.closeAllConnections();server.close();writePrivate(path.join(state,'control.json'),{...result,phase:'stopped'});fs.rmSync(lock,{force:true});}};
-  }catch(e){clearInterval(timer);sessions?.close();viewer?.close();runtime?.close();compute?.close();computeSsh.forEach(s=>s.close());egress?.close();proxy?.close();tunnel?.close();server?.close();fs.rmSync(lock,{force:true});throw e;}
+    return {...result,runtime,egress,compute,async close(){clearInterval(timer);sessions.close();viewer.close();seamless?.close();runtime.close();compute.close();computeSsh.forEach(s=>s.close());egress.close();proxy?.close();tunnel?.close();server.closeAllConnections();server.close();writePrivate(path.join(state,'control.json'),{...result,phase:'stopped'});fs.rmSync(lock,{force:true});}};
+  }catch(e){clearInterval(timer);sessions?.close();viewer?.close();seamless?.close();runtime?.close();compute?.close();computeSsh.forEach(s=>s.close());egress?.close();proxy?.close();tunnel?.close();server?.close();fs.rmSync(lock,{force:true});throw e;}
 }

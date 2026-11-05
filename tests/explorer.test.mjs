@@ -15,7 +15,7 @@ test('remote folder entry returns only a credential-free local panel link bound 
   assert.equal(workspaceAccess(status,'../secret').localUrl,null);
   assert.equal(workspaceAccess(status,'unknown').localUrl,null);
   assert.equal(workspaceAccess({...status,control:{...status.control,remote:'local'}},'other').canOpen,true);
-  assert.equal(workspaceAccess({...status,control:{...status.control,platform:'linux'}},'other').localUrl,null);
+  assert.equal(workspaceAccess({...status,control:{...status.control,platform:'linux'}},'other').localUrl,access.localUrl);
 });
 
 test('Explorer opens only an owned project UNC path without a shell or arbitrary caller path',async t=>{
@@ -23,7 +23,7 @@ test('Explorer opens only an owned project UNC path without a shell or arbitrary
   const folder=workspaceExplorerPath(receipt,'main');assert.equal(folder,'\\\\wsl.localhost\\StarportWork-0123456789abcdef\\var\\lib\\starport-workspaces\\main\\project');
   for(const name of ['../secret','/root','a\\b','x, /select,C:'])assert.throws(()=>workspaceExplorerPath(receipt,name));
   assert.throws(()=>workspaceExplorerPath({...receipt,distribution:'Ubuntu'},'main'));
-  const state=fs.mkdtempSync(path.join(os.tmpdir(),'starport-explorer-'));t.after(()=>fs.rmSync(state,{recursive:true,force:true}));fs.writeFileSync(path.join(state,'wsl.json'),JSON.stringify(receipt));
+  const state=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-explorer-'));t.after(()=>fs.rmSync(state,{recursive:true,force:true}));fs.writeFileSync(path.join(state,'wsl.json'),JSON.stringify(receipt));
   let launched;const launch=(file,args,options)=>{launched={file,args,options};const child=new EventEmitter();child.unref=()=>{};queueMicrotask(()=>child.emit('spawn'));return child;};
   assert.equal((await openWorkspaceFolder(state,'main',{platform:'win32',windowsRoot:'C:\\Windows',launch})).opened,true);
   assert.equal(launched.file,'C:\\Windows\\explorer.exe');assert.deepEqual(launched.args,[folder]);assert.equal(launched.options.shell,false);

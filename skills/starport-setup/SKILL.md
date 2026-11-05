@@ -208,3 +208,20 @@ configuration when its independent worker should be backed up. Never migrate liv
 trust, account cookies, access codes or verified state; report that import stages
 configuration and does not activate it. Verify encrypted round trips with synthetic
 fixtures and verify the template workflow in the real panel without displaying secrets.
+
+## Linux unified panel
+
+Read [LINUX-HOST.md](../../docs/LINUX-HOST.md). Use `setup-control.sh`, select a
+controlled subscription, and run `linux install` in a separate owned state. Do not
+reuse or rewrite a legacy live `local` VM. Ask whether optional Xpra seamless
+windows are wanted unless the session already establishes this preference.
+Clipboard, automatic file transfer and host URL opening stay disabled. Verify
+X11/XWayland support, actual app windows, web desktop and project-only SSHFS
+read/write. Do not share the host display with project programs.
+
+Ask whether to register current-user login startup unless already answered.
+`linux services enable` schedules the next login without interrupting a manual
+instance; use `start` only after that instance is safely stopped. Verify units,
+ownership and failure recovery separately from a real logout/cold boot. Register
+project shortcuts only for installed display choices. No model login, remote job
+restart or paid call is implied by installing desktop packages.

@@ -30,7 +30,7 @@ export function snapshotControl(file,{includeSecrets=false}={}){
   const host=readJson(file),config=defaultConfig('single-machine'),values={},warnings=[];
   if(host.format!=='starport-host-control'||host.version!==1)throw error('invalid_control_configuration');
   config.engine.model=host.model||'select-at-setup';config.engine.effort='low';
-  config.workspace={kind:'wsl2',wslg:host.wslg===true};config.lifecycle.autoStart='disabled';
+  config.workspace=host.runtime?.kind==='qemu'?{kind:'qemu',seamless:host.seamless===true}:{kind:'wsl2',wslg:host.wslg===true};config.lifecycle.autoStart='disabled';
   if(includeSecrets&&host.apiKeyFile)values[config.engine.providerRef]={kind:'model-provider',provider:'anthropic-api',endpoint:'https://api.anthropic.com',token:secret(resolve(file,host.apiKeyFile))};
   if(host.nodesFile){
     config.network.subscriptionRefs=['secret://network-subscription'];config.network.selectionRef='secret://network-selection';

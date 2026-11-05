@@ -18,7 +18,16 @@ if marker.exists() and marker.read_text() != q['owner']:
     raise SystemExit('distribution_owner_mismatch')
 marker.write_text(q['owner'])
 marker.chmod(0o600)
+mode=q.get('runtime', 'wsl2')
+if mode not in ('wsl2','qemu'): raise SystemExit('invalid_runtime_kind')
+if mode=='qemu' and pwd.getpwnam('agent').pw_uid!=1000: raise SystemExit('project_vm_identity_mismatch')
 env = {'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'DEBIAN_FRONTEND': 'noninteractive', 'TZ': 'Asia/Taipei'}
+if mode=='qemu':
+    proxy=q.get('proxy')
+    if proxy!='http://127.0.0.1:13129': raise SystemExit('controlled_install_proxy_required')
+    env.update(HTTP_PROXY=proxy,HTTPS_PROXY=proxy,http_proxy=proxy,https_proxy=proxy,NO_PROXY='localhost,127.0.0.1')
+    sources=pathlib.Path('/etc/apt/sources.list.d/ubuntu.sources')
+    sources.write_text(sources.read_text().replace('http://archive.ubuntu.com/','https://archive.ubuntu.com/').replace('http://security.ubuntu.com/','https://security.ubuntu.com/').replace('http://ports.ubuntu.com/','https://ports.ubuntu.com/'))
 for command in [
     ['apt-get', 'update'],
     ['apt-get', 'install', '-y', '--no-install-recommends', 'bubblewrap', 'libseccomp2', 'python3', 'ca-certificates',
@@ -27,6 +36,8 @@ for command in [
     ['localedef', '-i', 'en_US', '-f', 'UTF-8', 'en_US.UTF-8'],
 ]:
     subprocess.run(command, check=True, env=env, stdout=sys.stderr)
+if mode=='qemu':
+    exec(compile(q['security'], 'project-security', 'exec'))
 # The normal WSL entry is non-administrative. Only the Windows controller
 # explicitly invokes root; project programs never receive that launcher.
 try:
@@ -40,19 +51,8 @@ except KeyError:
         subprocess.run(['groupadd', '-g', '1000', 'agent'], check=True, env=env)
     subprocess.run(['useradd', '-u', '1000', '-g', '1000', '-d', '/home/agent', '-s', '/usr/sbin/nologin', 'agent'], check=True, env=env)
 subprocess.run(['usermod', '-G', '', '-d', '/home/agent', '-s', '/usr/sbin/nologin', '-L', 'agent'], check=True, env=env)
-pathlib.Path('/etc/wsl.conf').write_text('''[automount]
-enabled=false
-mountFsTab=false
-[interop]
-enabled=false
-appendWindowsPath=false
-[network]
-hostname=starship
-[time]
-useWindowsTimezone=false
-[user]
-default=agent
-''')
+if mode=='wsl2':
+    pathlib.Path('/etc/wsl.conf').write_text('[automount]\nenabled=false\nmountFsTab=false\n[interop]\nenabled=false\nappendWindowsPath=false\n[network]\nhostname=starship\n[time]\nuseWindowsTimezone=false\n[user]\ndefault=agent\n')
 pathlib.Path('/etc/timezone').write_text('Asia/Taipei\n')
 localtime = pathlib.Path('/etc/localtime')
 localtime.unlink(missing_ok=True)
@@ -93,4 +93,4 @@ for name, source in [('ssl/certs', '/etc/ssl/certs'), ('fonts', '/etc/fonts'), (
         shutil.copytree(source, target, symlinks=False)
     else:
         shutil.copyfile(source, target)
-print(json.dumps({'installed': True, 'restartOwnedDistribution': True, 'locale': 'zh_TW.UTF-8', 'timezone': 'Asia/Taipei'}))
+print(json.dumps({'installed': True, 'restartOwnedDistribution': mode=='wsl2', 'locale': 'zh_TW.UTF-8', 'timezone': 'Asia/Taipei'}))

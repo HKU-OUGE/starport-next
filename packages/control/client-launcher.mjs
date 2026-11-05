@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const fail=code=>Object.assign(new Error(code),{code});
-export async function launchLocalClient({state,workspace='main',app,fetcher=fetch}){
+export async function launchLocalClient({state,workspace='main',app,fetcher=fetch,display}){
   if(!['browser','desktop','terminal','login'].includes(app))throw fail('invalid_native_app');
   if(!/^[a-z][a-z0-9-]{0,47}$/.test(workspace))throw fail('invalid_workspace');
   let record,key;
@@ -28,24 +28,25 @@ export async function launchLocalClient({state,workspace='main',app,fetcher=fetc
   cookie=login.response.headers.get('set-cookie')?.split(';')[0]||'';
   if(!/^starport_control=[a-f0-9]+$/.test(cookie))throw fail('invalid_control_session');
   let status=(await request('/api/status')).value;csrf=status.csrf;
-  if(!status.runtime?.wslg)throw fail('wslg_authorization_required');
+  display ||= status.runtime?.seamless?'seamless':'wslg';
+  if(!['wslg','seamless'].includes(display)||!status.runtime?.[display])throw fail(display==='wslg'?'wslg_authorization_required':'seamless_authorization_required');
   if(!status.workspaces?.includes(workspace))throw fail('unknown_workspace');
   const session=status.runtime.native?.find(v=>v.workspace===workspace&&['starting','running'].includes(v.phase));
-  if(session&&session.display!=='wslg')throw fail('close_existing_display_first');
+  if(session&&session.display!==display)throw fail('close_existing_display_first');
   if(!status.egress?.enabled)throw fail('enable_controlled_egress_first');
   if(!status.runtime.reports?.some(v=>v.workspace===workspace&&v.passed)){
     if(status.runtime.active?.length)throw fail('workspace_verification_required');
     const verified=(await request(`/api/workspaces/${workspace}/verify`,{})).value;
     if(!verified.passed)throw fail('workspace_verification_failed');
   }
-  await request(`/api/workspaces/${workspace}/native`,{app,display:'wslg'});
+  await request(`/api/workspaces/${workspace}/native`,{app,display});
   // Acknowledgement means requested, not that the app remained running.
   let runningSamples=0;
   for(let attempt=0;attempt<28;attempt++){
     status=(await request('/api/status')).value;
     const native=status.runtime.native?.find(v=>v.workspace===workspace);
     if(native?.phase==='running'&&native.apps?.[app]==='running'){
-      if(++runningSamples>=10)return {workspace,app,display:'wslg',phase:'running'};
+      if(++runningSamples>=10)return {workspace,app,display,phase:'running'};
     }else runningSamples=0;
     if(native?.phase==='failed'||native?.apps?.[app]==='stopped')throw fail('native_app_stopped');
     await new Promise(resolve=>setTimeout(resolve,250));

@@ -7,7 +7,7 @@ import http from 'node:http';
 import {launchLocalClient} from '../packages/control/client-launcher.mjs';
 
 async function fixture(t,{remote=false,verified=true,verificationPass=true,earlyExit=false}={}){
-  const state=fs.mkdtempSync(path.join(os.tmpdir(),'starport-launch-')),key='a'.repeat(64),calls=[];
+  const state=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-launch-')),key='a'.repeat(64),calls=[];
   const status={workspaces:['main'],csrf:'test-csrf',egress:{enabled:true},runtime:{wslg:true,active:[],reports:verified?[{workspace:'main',passed:true}]:[],native:remote?[{workspace:'main',phase:'running',display:'remote',apps:{desktop:'running'}}]:[]}};
   const server=http.createServer(async(req,res)=>{
     let body='';for await(const chunk of req)body+=chunk;body=body?JSON.parse(body):undefined;
