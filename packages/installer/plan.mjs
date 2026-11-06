@@ -1,7 +1,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import {error} from '../runtime/common.mjs';
-export const VERSION='0.3.0-beta.1';
+export const VERSION='0.3.0-beta.2';
 export function defaultTarget(platform=process.platform){return platform==='win32'?path.join(process.env.LOCALAPPDATA||os.homedir(),'StarportNext'):path.join(process.env.XDG_DATA_HOME||path.join(os.homedir(),'.local/share'),'starport-next');}
 export const defaultFeatures={workspace:true,clients:true,inputMethod:true,seamless:false,clipboard:false,startup:false,api:false,compute:false,remote:false};
 export function validatePlan(value,platform=process.platform){
