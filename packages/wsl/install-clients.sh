@@ -10,7 +10,7 @@ p=Path('/etc/apt/sources.list.d/ubuntu.sources')
 p.write_text(p.read_text().replace('http://archive.ubuntu.com/','https://archive.ubuntu.com/').replace('http://security.ubuntu.com/','https://security.ubuntu.com/').replace('http://ports.ubuntu.com/','https://ports.ubuntu.com/'))
 PY
 apt-get "${apt_options[@]}" update -qq
-apt-get "${apt_options[@]}" install -y --no-install-recommends ca-certificates curl gnupg dbus-x11 xterm xdg-utils gnome-keyring fonts-noto-cjk libsecret-1-0 tigervnc-standalone-server openbox thunar
+apt-get "${apt_options[@]}" install -y --no-install-recommends ca-certificates curl gnupg dbus-x11 xterm xdg-utils gnome-keyring fonts-noto-cjk libsecret-1-0 tigervnc-standalone-server openbox thunar python3-gi gir1.2-gtk-3.0
 install -d -m 0755 /etc/apt/keyrings
 curl -fSs --retry-all-errors --retry-delay 2 --retry 2 --max-time 60 https://downloads.claude.ai/keys/claude-code.asc -o /etc/apt/keyrings/claude-code.asc
 fingerprint=$(gpg --batch --with-colons --show-keys /etc/apt/keyrings/claude-code.asc | awk -F: '$1=="fpr" {print $10; exit}')

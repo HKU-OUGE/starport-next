@@ -58,7 +58,7 @@ Windows 选择「本机 WSLg 窗口」后，可在「输入法」中点击「对
 - **Windows WSLg**：开启 WSLg 后使用原生剪贴板，应用内 Ctrl+C／Ctrl+V；终端内 Ctrl+Shift+C／Ctrl+Shift+V。
 - **Linux Xpra**：启用 `seamless: true` 和 `seamlessClipboard: "text"`，使用同样快捷键；只同步文字。
 - 繁体、简体、英文、多行代码均按原文传递；Fcitx 的剪贴板历史插件仍然关闭。
-- Windows 使用 WSLg 自身的格式支持，本项目没有为 WSLg 增加图片功能或强制纯文本过滤。
+- Windows 文字使用 WSLg 系统通道；Windows→项目图片通过[有界 PNG 桥接](CLIPBOARD-FILES.md)补齐格式，仍使用 Ctrl+V。
 - 开启同步意味着项目应用可以读取当前主机剪贴板中的文字；关闭无缝查看器即断开该同步通道。多个启用同步的项目会共用主机剪贴板。
 
 ## 验证

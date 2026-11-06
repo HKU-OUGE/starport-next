@@ -3,6 +3,7 @@ import {StringDecoder} from 'node:string_decoder';
 import {error} from './common.mjs';
 import {pipeBridge} from '../control/pipe-bridge.mjs';
 import {runtimeBundle} from './project-bundle.mjs';
+import {imageDimensions} from '../control/windows-image-clipboard.mjs';
 
 export function publicIme(value={}){
   if(!value||typeof value!=='object'||Array.isArray(value))value={};
@@ -18,7 +19,7 @@ export function publicIme(value={}){
 export function createProjectRuntime(state, { launch, destinations, capabilities, kind="wsl2", installed=()=>false, runtimeDigest, wslg=false, seamless=false, seamlessClipboard="disabled", credentialStorage="keyring", onState=()=>{} } = {}) {
   if(!['keyring','basic'].includes(credentialStorage))throw error('invalid_credential_storage');
   if(!['disabled','text','text-image'].includes(seamlessClipboard))throw error('invalid_clipboard_mode');
-  const active=new Map(),nativeStates=new Map(),viewers=new Map();const reports=new Map(),imePending=new Map();let alive=true;
+  const active=new Map(),nativeStates=new Map(),viewers=new Map();const reports=new Map(),imePending=new Map(),imagePending=new Map();let alive=true;
   if(typeof launch!=='function')throw error('workspace_transport_required');
   const spawnRunner=launch;
   function execute(workspace,request,{timeout=120000,onOutput=()=>{}}={}) {
@@ -33,7 +34,7 @@ export function createProjectRuntime(state, { launch, destinations, capabilities
     let stdout='',stderr='',settled=false,bridge;
     const decoders={stdout:new StringDecoder('utf8'),stderr:new StringDecoder('utf8')};
     const done=new Promise((resolve,reject)=>{
-      const finish=(err,result)=>{if(settled)return;settled=true;clearTimeout(timer);active.delete(key);if(request.operation==='native'){viewers.get(workspace)?.stream.destroy();viewers.delete(workspace);for(const [id,pending] of imePending){if(pending.workspace===workspace){clearTimeout(pending.timer);pending.reject(error('native_session_unavailable'));imePending.delete(id);}}}bridge?.close();onState();err?reject(err):resolve(result);};
+      const finish=(err,result)=>{if(settled)return;settled=true;clearTimeout(timer);active.delete(key);if(request.operation==='native'){viewers.get(workspace)?.stream.destroy();viewers.delete(workspace);for(const pendingMap of [imePending,imagePending])for(const [id,pending] of pendingMap){if(pending.workspace===workspace){clearTimeout(pending.timer);pending.reject(error('native_session_unavailable'));pendingMap.delete(id);}}}bridge?.close();onState();err?reject(err):resolve(result);};
       const timer=timeout===null?null:setTimeout(()=>{bridge?.close();child.kill();finish(error('workspace_operation_timeout'));},timeout);
       bridge=pipeBridge(child,destinations,{onChannel:channel=>{
         const viewer=viewers.get(workspace);
@@ -74,6 +75,7 @@ export function createProjectRuntime(state, { launch, destinations, capabilities
           const line=pending.slice(0,index);pending=pending.slice(index+1);
           try{const value=JSON.parse(line);
             if(value.kind==='native_ready'){nativeStates.set(workspace,{phase:'running',display,apps:{},ime:publicIme(value.ime)});clearTimeout(timer);readyResolve();}
+            if(value.kind==='native_clipboard_result'){const p=imagePending.get(value.id);if(p&&p.workspace===workspace){clearTimeout(p.timer);imagePending.delete(value.id);value.applied===true?p.resolve():p.reject(error('clipboard_delivery_failed'));}}
             if(value.kind==='native_ime_result'){const p=imePending.get(value.id);if(p&&p.workspace===workspace){clearTimeout(p.timer);imePending.delete(value.id);if(value.error)p.reject(error(/^(?:ime|invalid_ime)_[a-z_]{1,80}$/.test(value.error)?value.error:'ime_action_failed'));else{const result=publicIme(value.ime),state=nativeStates.get(workspace);if(state)state.ime=result;p.resolve(result);}}}
             if(value.kind==='native_state'){const apps=Object.fromEntries(Object.entries(value.apps||{}).filter(([k,v])=>['browser','desktop','terminal','login','files','input-test','terminal-input-test','compare-x11','compare-wayland'].includes(k)&&['running','stopped'].includes(v)));nativeStates.set(workspace,{phase:'running',display,apps,ime:publicIme(value.ime)});}
           }catch{}
@@ -87,6 +89,33 @@ export function createProjectRuntime(state, { launch, destinations, capabilities
   }
   const digest=runtimeDigest||(()=>runtimeBundle().digest);
   return {execute,reports,nativeAction,digest,
+    async nativeImage(workspace,png,isCurrent=()=>true){
+      const session=active.get(workspace+':native');
+      if(!wslg||!session||nativeStates.get(workspace)?.display!=='wslg')throw error('wslg_clipboard_session_required');
+      imageDimensions(png);
+      if([...imagePending.values()].some(p=>p.workspace===workspace))throw error('clipboard_transfer_busy');
+      const id=crypto.randomBytes(12).toString('hex');
+      let acknowledge,rejectAck;
+      const ack=new Promise((resolve,reject)=>{acknowledge=resolve;rejectAck=reject;});ack.catch(()=>{});
+      const timer=setTimeout(()=>{imagePending.delete(id);rejectAck(error('clipboard_acknowledgement_timeout'));},15000);
+      imagePending.set(id,{workspace,resolve:acknowledge,reject:rejectAck,timer});
+      const send=async frame=>{
+        if(!isCurrent()||active.get(workspace+':native')!==session||session.child.stdin.destroyed)throw error('clipboard_transfer_superseded');
+        if(session.child.stdin.writableLength>256*1024)await new Promise((resolve,reject)=>{
+          const input=session.child.stdin,done=err=>{clearTimeout(wait);input.off('drain',drain);input.off('close',closed);err?reject(err):resolve();};
+          const drain=()=>done(),closed=()=>done(error('native_session_unavailable'));
+          const wait=setTimeout(()=>done(error('clipboard_transfer_timeout')),5000);
+          input.once('drain',drain);input.once('close',closed);
+        });
+        if(!isCurrent())throw error('clipboard_transfer_superseded');
+        session.bridge.send({type:'native-action',app:'clipboard-image',id,...frame});
+      };
+      try{
+        await send({stage:'begin',bytes:png.length,sha256:crypto.createHash('sha256').update(png).digest('hex')});
+        for(let offset=0;offset<png.length;offset+=16384)await send({stage:'chunk',offset,data:png.subarray(offset,offset+16384).toString('base64')});
+        await send({stage:'end'});await ack;
+      }finally{clearTimeout(timer);imagePending.delete(id);}
+    },
     async imeAction(workspace,action,settings){
       if(!['traditional','english','simplified','restart','settings'].includes(action))throw error('invalid_ime_action');
       if(action==='settings'&&(!settings||Object.keys(settings).sort().join()!=='hotkey,rememberWindows'||!['Control+space','Control+Shift+space','Control+Alt+space'].includes(settings.hotkey)||typeof settings.rememberWindows!=='boolean'))throw error('invalid_ime_settings');

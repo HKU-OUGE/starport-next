@@ -88,6 +88,12 @@ Never reuse an old runtime's successful report to authorize a new version.
    Follow the [dual-display regression checklist](references/dual-display-regression.md)
    before handing off either mode or publishing a shared-launcher change. Complete
    both mode columns and keep account-dependent and public-viewer results separate.
+   For Windows image clipboard or file dragging changes, follow the
+   [clipboard regression steps](references/clipboard-regression.md). Install the
+   GTK Python dependencies and migrate the project bundle while idle. A browser
+   automation clipboard may be virtual: use actual OS copy/paste and inspect the
+   receiving image. Cross-system WSLg drag-and-drop remains unsupported; offer
+   the scoped Windows file window without mounting host disks or injecting into WSLg.
    Restore requested original shortcut names/icons with `-Appearance original`,
    preserving the authenticated project launcher and reversible ownership backups.
    Verify browser, Desktop and Claude Code from the installed shortcuts as actual

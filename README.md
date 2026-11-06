@@ -33,6 +33,7 @@ Linux 使用独立 QEMU 虚拟机接入同一面板，可选择网页桌面或 *
 官方账号登录及 Desktop 真实对话验收仍独立记录。
 
 项目图形客户端的繁体拼音、English 与可选简体配置见 [输入法](docs/INPUT-METHODS.md)。
+Windows→WSLg 图片 Ctrl+V 提供 PNG 格式桥接；客户端页的「Windows 文件窗口」用于与 Windows 应用传文件。跨系统直接拖放的限制见[图片与文件](docs/CLIPBOARD-FILES.md)。
 
 ## 安装
 

@@ -278,3 +278,11 @@ Linux `.run` 和 Windows `.exe` 在对应系统完成包校验及真实控制中
 
 完整的新机器工作区安装、交互式管理员授权、WSLg 输入和实际注销／重启仍待目标机
 验证；本次核心安装生命周期测试不包含它们。证据见[安装器验收](verification/installer-0.3.json)。
+
+## 2026-11-06：Windows→WSLg 图片修复
+
+Windows Paint 实际复制合成 PNG，在默认 X11/XWayland 的 WSLg Chrome 中 Ctrl+V：收到一个 `image/png` 文件，256×160，解码后像素摘要一致。图片→纯文字→同一图片的切换通过，未形成持续回传循环。WSLg 反向复制到 Windows Paint 能正常显示；保存样本中 35 个像素的红色通道差 1，不能记为无损往返。
+
+新「Windows 文件窗口」按钮打开选中项目的 Windows Explorer。WSLg 内部文件拖放此前由用户报告通过；WSLg 与 Windows 任意窗口之间的透明拖放仍未实现，Windows 文件窗口跨窗口拖放未在此次自动化中验收。
+
+安装了 GTK Python 依赖、迁移运行包并重新通过项目边界检查。最后一个 WSLg 会话退出时图片监听器停止，网页桌面不启动它；网页文件管理器首帧和双击目录通过，切回 WSLg 后监听器恢复。两台既有计算节点保持就绪。源码测试 146 通过、12 项平台跳过、0 失败，源码检查通过。Wayland、透明图片、官方账号附件和冷启动单列待验；证据见[Windows 图片验收](verification/windows-clipboard.json)。

@@ -5,7 +5,9 @@ import os
 import pathlib
 import shutil
 import socket
+import select
 import stat
+import struct
 import subprocess
 import sys
 import threading
@@ -41,6 +43,44 @@ pathlib.Path('/home/agent/.config/mimeapps.list').write_text('[Default Applicati
 apps = {}
 display_processes = []
 output_lock = threading.Lock()
+image_owner = None
+image_spec = importlib.util.spec_from_file_location('image_clipboard', '/opt/starport/image-clipboard.py')
+image_module = importlib.util.module_from_spec(image_spec)
+image_spec.loader.exec_module(image_module)
+image_transfer = image_module.ImageTransfer()
+
+
+def receive_image(message):
+    global image_owner
+    result = {'kind': 'native_clipboard_result', 'id': message.get('id'), 'applied': False}
+    try:
+        if remote:
+            raise ValueError('wslg_authorization_required')
+        data = image_transfer.accept(message)
+        if data is None:
+            return
+        if image_owner is None or image_owner.poll() is not None:
+            image_owner = subprocess.Popen(['/usr/bin/python3', '-I', '/opt/starport/image-clipboard.py'],
+                                           stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                           stderr=subprocess.DEVNULL, start_new_session=True)
+            if not select.select([image_owner.stdout], [], [], 5)[0] or image_owner.stdout.readline(64).strip() != b'ready':
+                raise ValueError('clipboard_owner_unavailable')
+        image_owner.stdin.write(struct.pack('>I', len(data)) + data)
+        image_owner.stdin.flush()
+        if not select.select([image_owner.stdout], [], [], 5)[0] or image_owner.stdout.readline(64).strip() != b'applied':
+            raise ValueError('clipboard_apply_failed')
+        result['applied'] = True
+    except Exception:
+        image_transfer.reset()
+        if image_owner is not None and image_owner.poll() is None:
+            image_owner.terminate()
+            try:
+                image_owner.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                image_owner.kill()
+        image_owner = None
+    with output_lock:
+        print(json.dumps(result), flush=True)
 
 if remote:
     # This project holds native.lock; no previous GUI namespace is alive. Xvfb
@@ -215,7 +255,9 @@ threading.Thread(target=monitor, daemon=True).start()
 try:
     for line in sys.stdin:
         message = json.loads(line)
-        if message['app'] == 'ime':
+        if message['app'] == 'clipboard-image':
+            receive_image(message)
+        elif message['app'] == 'ime':
             result = {'kind':'native_ime_result','id':message['id']}
             try:
                 result['ime'] = ime.action(message['action'], message.get('settings'))
@@ -229,6 +271,12 @@ try:
             launch(message['app'])
 finally:
     ime.stop()
+    if image_owner is not None and image_owner.poll() is None:
+        image_owner.terminate()
+        try:
+            image_owner.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            image_owner.kill()
     for child in [*apps.values(), *display_processes]:
         if child.poll() is None:
             child.terminate()

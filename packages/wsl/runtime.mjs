@@ -6,6 +6,7 @@ import { StringDecoder } from 'node:string_decoder';
 import { fileURLToPath } from 'node:url';
 import { privateDir,writePrivate,read,hash,cleanEnv,run,error } from '../runtime/common.mjs';
 import {createProjectRuntime} from '../runtime/project.mjs';
+import {windowsImageClipboard} from '../control/windows-image-clipboard.mjs';
 import {runtimeBundle,bundleNames} from '../runtime/project-bundle.mjs';
 export {runtimeBundle} from '../runtime/project-bundle.mjs';
 const source = fileURLToPath(new URL('.', import.meta.url));
@@ -115,6 +116,12 @@ export function createWslRuntime(state,options={}) {
     return spawn('wsl.exe',wslArgs(r.distribution,'/usr/bin/python3','-I','-B','-c',guard),{
       shell:false,windowsHide:true,env:cleanEnv({WSLENV:''}),stdio:['pipe','pipe','pipe']});
   });
-  return createProjectRuntime(state,{...options,launch:spawnRunner,kind:'wsl2',
+  const runtime=createProjectRuntime(state,{...options,launch:spawnRunner,kind:'wsl2',
     installed:()=>fs.existsSync(path.join(state,'wsl.json'))&&read(path.join(state,'wsl.json')).phase==='installed'});
+  if(process.platform==='win32'&&options.wslg&&!options.launch){
+    const clipboard=windowsImageClipboard(runtime),status=runtime.status,close=runtime.close;
+    runtime.status=()=>({...status(),windowsImageClipboard:clipboard.status()});
+    runtime.close=()=>{clipboard.close();close();};
+  }
+  return runtime;
 }

@@ -27,6 +27,7 @@ async function refresh(){if(polling)return;polling=true;try{status=await api('/a
 if(status.workspaces.join()!==[...$('workspace').options].map(o=>o.value).join()){const old=selected;$('workspace').replaceChildren(...status.workspaces.map(v=>{const o=el('option',v);o.value=v;return o;}));$('workspace').value=status.workspaces.includes(old)?old:status.workspaces[0];selected=$('workspace').value;}
 const report=status.runtime.reports.find(r=>r.workspace===selected),busy=status.runtime.active.some(r=>r.workspace===selected&&['exec','sdk'].includes(r.operation));$('verified').textContent=report?.passed?'边界验证通过':'未验证';$('verified').className='pill'+(report?.passed?' good':'');$('run').disabled=!report?.passed||busy||sdkRunning;
 const workspaceAccess=showWorkspaceAccess(status,selected,$('open-folder'),$('workspace-local-panel'));$('workspace-location').textContent=workspaceAccess.label;
+$('native-windows-files').hidden=!(workspaceAccess.canOpen&&status.control.platform==='win32'&&status.runtime.kind==='wsl2');$('native-windows-files').disabled=!report?.passed;
 $('configuration').hidden=status.control.remote!=='local';
 viewer.update(status);inputMethod.update(status);
 const choices=['remote',...(status.runtime.wslg&&status.control.remote==='local'?['wslg']:[]),...(status.runtime.seamless&&status.control.remote==='local'?['seamless']:[])];
@@ -45,6 +46,7 @@ async function digest(bytes){return [...new Uint8Array(await crypto.subtle.diges
 async function download(name){const v=await files({operation:'read',path:joined(name)}),bytes=Uint8Array.from(atob(v.data),c=>c.charCodeAt(0));if(await digest(bytes)!==v.sha256)throw Error('file_integrity_mismatch');const url=URL.createObjectURL(new Blob([bytes])),a=el('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 $('login').addEventListener('submit',async e=>{e.preventDefault();try{await api('/api/login',{key:$('key').value});$('key').value='';await refresh();}catch(err){problem(err);}});
 action($('refresh'),refresh);action($('files-refresh'),list);action($('parent'),async()=>{folder=folder.split('/').slice(0,-1).join('/');await list();});
+action($('native-windows-files'),async()=>{await api(`/api/workspaces/${selected}/open-folder`,{});$('clients-output').textContent='已打开 Windows 项目文件窗口，可从这里拖入其他 Windows 应用。';});
 action($('open-folder'),async()=>{await api(`/api/workspaces/${selected}/open-folder`,{});$('folder-opened').textContent='已请求打开当前项目文件夹。文件修改会同步到当前项目。';});
 action($('mkdir'),async()=>{const name=prompt('文件夹名称');if(name){await files({operation:'mkdir',path:joined(name)});await list();}});
 action($('new-workspace'),async()=>{const id=prompt('项目名称（小写英文字母、数字和连字符）');if(id){await api('/api/workspaces',{id});await refresh();}});

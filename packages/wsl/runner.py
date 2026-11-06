@@ -277,7 +277,7 @@ def serve(base=BASE, code=CODE):
                         raise ValueError('invalid_frame')
                     f = json.loads(line)
                     if f.get('type') == 'native-action':
-                        if operation != 'native' or f.get('app') not in ['browser', 'desktop', 'terminal', 'login', 'files', 'input-test', 'terminal-input-test', 'ime'] + (['viewer'] if remote else ['display-compare']):
+                        if operation != 'native' or f.get('app') not in ['browser', 'desktop', 'terminal', 'login', 'files', 'input-test', 'terminal-input-test', 'ime'] + (['viewer'] if remote else ['display-compare', 'clipboard-image']):
                             raise ValueError('invalid_native_action')
                         message={'app': f['app']}
                         if f['app']=='ime':
@@ -285,6 +285,10 @@ def serve(base=BASE, code=CODE):
                                 raise ValueError('invalid_ime_action')
                             message.update(id=f['id'],action=f['action'])
                             if f['action']=='settings':message['settings']=f.get('settings')
+                        elif f['app']=='clipboard-image':
+                            if remote or f.get('stage') not in ['begin','chunk','end'] or not isinstance(f.get('id'),str) or not re.fullmatch(r'[a-f0-9]{24}',f['id']):
+                                raise ValueError('invalid_clipboard_action')
+                            message.update({k:f[k] for k in ['stage','id','bytes','sha256','offset','data'] if k in f})
                         child.stdin.write((json.dumps(message) + '\n').encode())
                         child.stdin.flush()
                         continue

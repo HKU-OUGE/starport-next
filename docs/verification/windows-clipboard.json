@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-06",
+  "sourceBase": "579b269de4f63fc9a39702bca3c7f37875814a44",
+  "runtimeDigest": "4aac069f10384e242a9c10c8313d73d70aa22c5d3954f7f591c8783fb154af2f",
+  "environment": {
+    "windows": "10.0.26200.9711",
+    "wsl": "3.0.3.0",
+    "wslg": "1.0.79",
+    "display": "default X11/XWayland"
+  },
+  "syntheticImage": {
+    "width": 256,
+    "height": 160,
+    "rgbaSha256": "5edfd4e074a0e8785fc761a5371744ca5d1bda73ed3b95523bc75a4b329f06cc"
+  },
+  "observed": {
+    "windowsToWslg": "Actual Windows Paint Ctrl+C -> WSLg Chrome Ctrl+V: PASTE PASS, one image/png file; decoded RGBA hash matches",
+    "repeatAfterText": "Second image paste passed after switching the clipboard to plain text",
+    "plainText": "Actual Windows text selection copied; WSLg address field received STARPORT TEXT QA without submitting a search",
+    "wslgToWindows": {
+      "result": "Image pasted and rendered in Windows Paint",
+      "savedSamplePixelExact": false,
+      "differentPixels": 35,
+      "maximumChannelDelta": 1,
+      "comparison": "256x160 pasted region in saved Paint canvas"
+    },
+    "listenerLifecycle": "Last WSLg close -> stopped; remote session -> stopped; reopened WSLg -> ready",
+    "remoteDesktop": "File manager rendered through authenticated local web viewer; double-click opened the synthetic test folder",
+    "windowsFileWindow": "New client-page button opened Windows Explorer at the selected WSL project directory",
+    "boundary": "Fresh verification passed after installed runtime migration; installed digest equals source bundle"
+  },
+  "automated": {
+    "testsPassed": 146,
+    "platformSkipped": 12,
+    "failed": 0,
+    "sourceAudit": "passed"
+  },
+  "limitations": [
+    "Transparent file dragging directly between WSLg and Windows windows remains unsupported",
+    "Cross-window dragging from Windows Explorer was not automated; scoped folder opening was verified",
+    "Within-WSLg file dragging had passed in user-performed checks before this repair",
+    "Wayland-native clipboard, transparent images, official Claude account attachments and cold boot were not verified",
+    "Reverse Paint sample has small pixel differences; do not describe it as lossless"
+  ]
+}
