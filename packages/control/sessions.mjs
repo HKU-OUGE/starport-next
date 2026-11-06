@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {privateDir,writePrivate,read,error} from '../runtime/common.mjs';
+import {validateUpload,resolveAttachments} from './session-attachments.mjs';
 
 const idPattern=/^[a-f0-9]{32}$/;
 const uuidPattern=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
@@ -12,7 +13,7 @@ const maxLogBytes=64*1024*1024;
 // Control owns the registry; the SDK owns conversation context in the persistent
 // project HOME. A browser cannot supply an SDK resume ID or an execution path.
 export function createSessions(state,{runtime,authorize,workspaces,model}={}){
-  const dir=privateDir(path.join(state,'sessions')),rows=new Map(),live=new Map();
+  const dir=privateDir(path.join(state,'sessions')),rows=new Map(),live=new Map(),uploads=new Map();
   let closed=false;
   const meta=id=>path.join(dir,id+'.json'),log=id=>path.join(dir,id+'.jsonl');
   function safe(file){if(fs.existsSync(file)&&(!fs.lstatSync(file).isFile()||fs.lstatSync(file).isSymbolicLink()))throw error('session_file_invalid');}
@@ -66,18 +67,42 @@ export function createSessions(state,{runtime,authorize,workspaces,model}={}){
     if(input.archived!==undefined){if(typeof input.archived!=='boolean')throw error('invalid_session_update');if(live.has(id))throw error('session_busy');row.archived=input.archived;}
     save(row);return visible(row);
   }
+  async function upload(id,input){
+    const row=get(id),file=validateUpload(input);
+    if(closed)throw error('control_stopping');if(row.archived)throw error('session_archived');
+    authorize(row.workspace);
+    row.attachments||=[];
+    let stored=row.attachments.find(f=>f.id===file.id);
+    if(stored&&(stored.name!==file.name||stored.sha256!==file.sha256||stored.bytes!==file.bytes))throw error('request_id_conflict');
+    if(stored?.ready)return stored;
+    if(uploads.has(row.workspace)||live.has(id)||runtime.status().active.some(v=>v.workspace===row.workspace&&['exec','sdk'].includes(v.operation)))throw error('workspace_busy');
+    if(!stored){
+      if(row.attachments.length>=1024)throw error('session_attachment_limit');
+      stored={...file,path:'.starport-attachments/'+id+'/'+file.id+'/'+file.name,ready:false};
+      row.attachments.push(stored);save(row);
+    }
+    uploads.set(row.workspace,true);
+    try{
+      const out=await runtime.execute(row.workspace,{operation:'files',request:{operation:'attach',session:id,id:file.id,name:file.name,data:input.data,sha256:file.sha256}});
+      let receipt;try{receipt=JSON.parse(out.stdout);}catch{throw error('attachment_upload_failed');}
+      if(out.code!==0)throw error(/^[a-z][a-z0-9_]{1,79}$/.test(receipt.error||'')?receipt.error:'attachment_upload_failed');
+      if(receipt.sha256!==file.sha256||receipt.bytes!==file.bytes)throw error('file_integrity_mismatch');
+      stored.ready=true;save(row);return stored;
+    }finally{uploads.delete(row.workspace);}
+  }
   function start(id,input){
     const row=get(id),rid=requestId(input?.requestId),prompt=input?.prompt;
-    if(typeof prompt!=='string'||!prompt.trim()||prompt.length>65536||Buffer.byteLength(JSON.stringify(prompt))>120000)throw error('invalid_prompt');
-    const hash=digest(prompt),existing=row.turns.find(t=>t.id===rid);
+    const attachments=resolveAttachments(row,input?.attachments);
+    if(typeof prompt!=='string'||(!prompt.trim()&&!attachments.length)||prompt.length>65536||Buffer.byteLength(JSON.stringify(prompt))>120000)throw error('invalid_prompt');
+    const hash=digest(attachments.length?JSON.stringify([prompt,attachments]):prompt),existing=row.turns.find(t=>t.id===rid);
     if(existing){if(existing.promptHash!==hash)throw error('request_id_conflict');return {session:visible(row),turn:visible(row).turns.find(t=>t.id===rid),reused:true};}
     if(closed)throw error('control_stopping');if(row.archived)throw error('session_archived');if(live.has(id))throw error('session_busy');
     if(row.turns.length&&!row.sdkSessionId)throw error('session_context_unconfirmed_create_new');
     authorize(row.workspace);
-    if([...live.values()].some(v=>v.workspace===row.workspace)||runtime.status().active.some(v=>v.workspace===row.workspace&&['exec','sdk'].includes(v.operation)))throw error('workspace_busy');
+    if(uploads.has(row.workspace)||[...live.values()].some(v=>v.workspace===row.workspace)||runtime.status().active.some(v=>v.workspace===row.workspace&&['exec','sdk'].includes(v.operation)))throw error('workspace_busy');
     const turn={id:rid,promptHash:hash,status:'running',startedAt:now()},run={workspace:row.workspace,cancelled:false};
     row.turns.push(turn);row.status='running';live.set(id,run);
-    try{append(row,{type:'prompt',prompt,turnId:rid});save(row);}catch(e){live.delete(id);row.turns.pop();row.status='failed';throw e;}
+    try{append(row,{type:'prompt',prompt,attachments,turnId:rid});save(row);}catch(e){live.delete(id);row.turns.pop();row.status='failed';throw e;}
     let pending='',result,streamError;
     function accept(line){if(!line.trim())return;let event;try{event=JSON.parse(line);}catch{throw error('invalid_sdk_event');}
       if(!event||typeof event.type!=='string')throw error('invalid_sdk_event');
@@ -92,7 +117,7 @@ export function createSessions(state,{runtime,authorize,workspaces,model}={}){
       }catch(e){streamError=e;runtime.cancelSdk(row.workspace).catch(()=>{});}
     };
     let operation;
-    try{operation=runtime.execute(row.workspace,{operation:'sdk',request:{prompt,resume:row.sdkSessionId||undefined,model:row.model}},{timeout:300000,onOutput});}
+    try{operation=runtime.execute(row.workspace,{operation:'sdk',request:{prompt:prompt.trim()?prompt:'请查看附件。',attachments,resume:row.sdkSessionId||undefined,model:row.model}},{timeout:300000,onOutput});}
     catch(e){operation=Promise.reject(e);}
     run.done=Promise.resolve(operation).then(out=>{
       if(pending.trim())accept(pending);
@@ -115,7 +140,7 @@ export function createSessions(state,{runtime,authorize,workspaces,model}={}){
   async function stop(id){const row=get(id),run=live.get(id);if(!run)return visible(row);
     run.cancelled=true;row.status='cancelling';save(row);await runtime.cancelSdk(row.workspace);await run.done;return visible(row);
   }
-  return {create,update,start,stop,snapshot,
+  return {create,update,start,stop,snapshot,upload,
     list({workspace,archived=false}={}){return [...rows.values()].filter(r=>(!workspace||r.workspace===workspace)&&r.archived===archived).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)).map(visible);},
     close(){closed=true;}
   };

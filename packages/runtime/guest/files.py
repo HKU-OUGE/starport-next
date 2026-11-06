@@ -1,4 +1,4 @@
-import base64, hashlib, json, os, pathlib, sys, tempfile
+import base64, hashlib, json, os, pathlib, re, sys, tempfile
 
 ROOT = pathlib.Path('/workspace')
 LIMIT = 64 * 1024 * 1024
@@ -19,6 +19,25 @@ def target(value):
     return p
 
 def main(q):
+    if q['operation'] == 'attach':
+        session, identity, name = q.get('session'), q.get('id'), q.get('name')
+        if not isinstance(session, str) or not re.fullmatch('[a-f0-9]{32}', session):
+            raise ValueError('invalid_attachment_session')
+        if not isinstance(identity, str) or not re.fullmatch('[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}', identity):
+            raise ValueError('invalid_request_id')
+        if not isinstance(name, str) or not name or name in ('.', '..') or len(name.encode('utf-8')) > 240 or re.search(r'[\\/\x00-\x1f\x7f]', name):
+            raise ValueError('invalid_attachment_name')
+        # Each component is checked before mkdir; do not follow project symlinks.
+        directory = '.starport-attachments'
+        for part in ('', '/' + session, '/' + identity):
+            directory += part
+            target(directory).mkdir(mode=0o700, exist_ok=True)
+        q = {**q, 'operation': 'write', 'path': directory + '/' + name, 'replace': False}
+        p = target(q['path'])
+        if p.exists():
+            if not p.is_file() or p.stat().st_size > LIMIT or hashlib.sha256(p.read_bytes()).hexdigest() != q['sha256']:
+                raise ValueError('attachment_content_changed')
+            return {'written': True, 'sha256': q['sha256'], 'bytes': p.stat().st_size}
     p = target(q.get('path', ''))
     op = q['operation']
     if op == 'list':

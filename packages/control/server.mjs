@@ -87,7 +87,7 @@ export async function startHostControl(state,options={}){
           await access.authenticate(req,policy);const bytes=viewerAsset(url.pathname);
           res.writeHead(200,{'content-type':'text/javascript; charset=utf-8','cache-control':'no-store'});return res.end(bytes);
         }
-        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/viewer.js','/ime.js','/sessions.js','/workspace-access.js','/file-transfer.js','/style.css'].includes(url.pathname)){
+        if(req.method==='GET'&&['/','/app.js','/operations.js','/shell.js','/remote.js','/resources.js','/viewer.js','/ime.js','/sessions.js','/session-attachments.js','/workspace-access.js','/file-transfer.js','/style.css'].includes(url.pathname)){
           if(policy.mode==='cloudflare')await access.authenticate(req,policy);
           if(url.pathname==='/'){
             const page=await webDocument();res.setHeader('Content-Security-Policy',page.csp);
@@ -122,10 +122,11 @@ export async function startHostControl(state,options={}){
           if(req.method==='POST')return json(res,201,sessions.create(await bodyJson(req,4096)));
           throw error('unknown_route');
         }
-        const conversation=/^\/api\/sessions\/([a-f0-9]{32})(?:\/(messages|stop))?$/.exec(url.pathname);
+        const conversation=/^\/api\/sessions\/([a-f0-9]{32})(?:\/(messages|stop|attachments))?$/.exec(url.pathname);
         if(conversation){const [,id,action]=conversation;
           if(req.method==='GET'&&!action)return json(res,200,sessions.snapshot(id,Number(url.searchParams.get('after')||0)));
           if(req.method==='POST'){
+            if(action==='attachments')return json(res,201,await sessions.upload(id,await bodyJson(req,90*1024*1024)));
             const input=await bodyJson(req,256*1024);
             if(action==='messages')return json(res,202,sessions.start(id,input));
             if(action==='stop')return json(res,200,await sessions.stop(id));

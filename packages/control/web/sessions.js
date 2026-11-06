@@ -1,4 +1,5 @@
 import {showWorkspaceAccess} from './workspace-access.js';
+import {initAttachments} from './session-attachments.js';
 const labels={idle:'就绪',running:'运行中',cancelling:'正在停止',completed:'已完成',cancelled:'已停止',interrupted:'已中断',failed:'失败'};
 export function initSessions({api,problem,el}){
   const $=id=>document.getElementById(id),cache=new Map();
@@ -7,26 +8,46 @@ export function initSessions({api,problem,el}){
   const busy=()=>['running','cancelling'].includes(row?.status);
   const key=id=>'starport-message-'+id;
   function pending(id){try{return JSON.parse(sessionStorage.getItem(key(id))||'null');}catch{return null;}}
+  const attachments=initAttachments({api,el,problem,change:()=>controls(),session:()=>row?{id:row.id,locked:row.archived||busy()||sending||!!pending(row.id)}:null});
   function controls(){
     const proof=status?.runtime.reports.find(r=>r.workspace===row?.workspace),ready=proof?.passed&&status?.model?.configured&&status?.egress.enabled;
     $('session-title').textContent=row?.title||'选择或新建会话';
     const access=showWorkspaceAccess(status,row?.workspace,$('session-open-folder'),$('session-local-panel'));
     $('session-state').textContent=row?`${row.workspace} · ${access.label} · ${labels[row.status]||row.status}${row.archived?' · 已归档':''}`:'';
     $('session-model').textContent=row?.model||status?.model?.model||'API 未配置';
-    $('session-send').disabled=!row||busy()||sending||row.archived||!ready;
+    $('session-send').disabled=!row||busy()||sending||row.archived||!ready||attachments.blocked(selected);
     $('session-input').disabled=!row||row.archived||sending;
     $('session-stop').hidden=!busy();$('session-stop').disabled=row?.status==='cancelling';
     $('session-rename').disabled=!row;$('session-archive').disabled=!row||busy();
     $('session-archive').textContent=row?.archived?'恢复':'归档';
     $('session-send').textContent=sending?'发送中…':pending(selected)?'重试发送':'发送';
+    attachments.render();
   }
   function card(label,text,kind='assistant'){
-    const node=el('article',undefined,'chat-message chat-'+kind);node.append(el('div',label,'chat-label'),el('div',text,'chat-text'));return node;
+    const node=el('article',undefined,'chat-message chat-'+kind),body=el('div',undefined,'chat-text');
+    if(kind!=='assistant')body.textContent=text;
+    else{
+      // Link source URLs without executing model HTML or interpreting code as links.
+      const pattern=/```[\s\S]*?```|`[^`\n]+`|\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|https?:\/\/[^\s<>"`]+/g;
+      let last=0;
+      for(const m of (text||'').matchAll(pattern)){
+        body.append(document.createTextNode(text.slice(last,m.index)));
+        if(m[0].startsWith('`'))body.append(document.createTextNode(m[0]));
+        else{const a=el('a',m[1]||m[0]);a.href=m[2]||m[0];a.target='_blank';a.rel='noopener noreferrer';body.append(a);}
+        last=m.index+m[0].length;
+      }
+      body.append(document.createTextNode((text||'').slice(last)));
+    }
+    node.append(el('div',label,'chat-label'),body);return node;
   }
   function tool(label,value){const details=el('details',undefined,'chat-tool');details.append(el('summary',label),el('pre',typeof value==='string'?value:JSON.stringify(value,null,2)));return details;}
   function renderEvent(item){
     const nodes=[];
-    if(item.type==='prompt')nodes.push(card('你',item.prompt,'user'));
+    if(item.type==='prompt'){
+      const node=card('你',item.prompt,'user');
+      for(const file of item.attachments||[])node.append(el('div','📎 '+file.name,'chat-attachment'));
+      nodes.push(node);
+    }
     if(item.type==='state'&&item.status!=='completed')nodes.push(card(labels[item.status]||item.status,item.message||item.error||'','state'));
     const event=item.event;
     if(event?.type==='assistant')for(const part of event.message?.content||[]){
@@ -36,7 +57,8 @@ export function initSessions({api,problem,el}){
     if(event?.type==='user')for(const part of Array.isArray(event.message?.content)?event.message.content:[]){if(part.type==='tool_result')nodes.push(tool(part.is_error?'工具错误':'工具结果',part.content));}
     if(event?.type==='result'){
       if(event.is_error)nodes.push(card('调用未完成',(event.errors||[]).join('\n')||event.result||event.subtype,'state'));
-      nodes.push(el('div',`${event.is_error?'已结束':'本轮完成'}${Number.isFinite(event.total_cost_usd)?' · 会话累计估算 $'+event.total_cost_usd.toFixed(4):''}`,'chat-result'));
+      const cost=el('div',`${event.is_error?'已结束':'本轮完成'}${Number.isFinite(event.total_cost_usd)?' · SDK 累计估算 $'+event.total_cost_usd.toFixed(4):''}`,'chat-result');
+      cost.title='SDK 会话累计估算；网页读取 MCP 的额外 API 用量见工具结果。实际费用以提供方账单为准。';nodes.push(cost);
     }
     return nodes;
   }
@@ -62,7 +84,7 @@ export function initSessions({api,problem,el}){
       if(cursor===0&&!data.events.length&&!box.querySelector('.empty-state'))box.append(el('p','从一条消息开始','empty-state'));
       if(data.events.length)for(const empty of box.querySelectorAll('.empty-state'))empty.remove();
       for(const item of data.events)box.append(...renderEvent(item));cursor=data.nextCursor;
-      const draft=pending(selected);if(draft&&row.turns.some(t=>t.id===draft.requestId)){sessionStorage.removeItem(key(selected));if($('session-input').value===draft.prompt)$('session-input').value='';cache.delete(selected);}
+      const draft=pending(selected);if(draft&&row.turns.some(t=>t.id===draft.requestId)){sessionStorage.removeItem(key(selected));attachments.clear(selected,draft.attachments||[]);if($('session-input').value===draft.prompt)$('session-input').value='';cache.delete(selected);}
       if(follow)box.scrollTop=box.scrollHeight;controls();
       if(data.hasMore)setTimeout(()=>sync().catch(problem),0);
     }finally{loading=false;}
@@ -82,12 +104,12 @@ export function initSessions({api,problem,el}){
   $('session-workspace').addEventListener('change',()=>sync().catch(problem));$('session-filter').addEventListener('change',()=>sync().catch(problem));
   $('session-input').addEventListener('input',drafts);
   $('session-form').addEventListener('submit',async event=>{
-    event.preventDefault();if(!row||sending||busy()||row.archived)return;
-    const id=selected,prompt=$('session-input').value;if(!prompt.trim())return;
+    event.preventDefault();if(!row||sending||busy()||row.archived||attachments.blocked(selected))return;
+    const id=selected,prompt=$('session-input').value,attached=attachments.ids(id);if(!prompt.trim()&&!attached.length)return;
     let request=pending(id);
-    if(request&&request.prompt!==prompt){problem(Error('上次发送结果尚待核对，请保留原消息重试，或切换到新会话。'));return;}
-    request||={prompt,requestId:crypto.randomUUID()};sessionStorage.setItem(key(id),JSON.stringify(request));sending=true;controls();
-    try{$('error').textContent='';await api('/api/sessions/'+id+'/messages',request);sessionStorage.removeItem(key(id));cache.delete(id);if(selected===id)$('session-input').value='';await sync();}
+    if(request&&(request.prompt!==prompt||JSON.stringify(request.attachments||[])!==JSON.stringify(attached))){problem(Error('上次发送结果尚待核对，请保留原消息重试，或切换到新会话。'));return;}
+    request||={prompt,attachments:attached,requestId:crypto.randomUUID()};sessionStorage.setItem(key(id),JSON.stringify(request));sending=true;controls();
+    try{$('error').textContent='';await api('/api/sessions/'+id+'/messages',request);sessionStorage.removeItem(key(id));attachments.clear(id,request.attachments||[]);cache.delete(id);if(selected===id)$('session-input').value='';await sync();}
     catch(e){problem(e);}finally{sending=false;controls();}
   });
   $('session-input').addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();$('session-form').requestSubmit();}});

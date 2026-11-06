@@ -13,7 +13,7 @@
 | 3. 项目与依赖 | 项目、依赖版本、模型 | 持久工作区、只读依赖和独立新增依赖层 |
 | 4. 远程访问 | Cloudflare Token、域名、邮箱 | Tunnel、Access、权限与重连验证 |
 
-**当前交付：配置工具、本地隔离工作区与控制面板。** 已实现加密导入／导出、Pi v1 配置迁移、QEMU 工作区、专用出口、文件操作与官方 Agent SDK 接入。提供 Windows／WSL2 和 Linux／QEMU 的统一面板、文件、会话、项目桌面和训练 API 接入；验证边界见[验收记录](docs/ACCEPTANCE.md)。账号 CLI／Desktop 的 guest 安装和画面入口见[官方账号客户端](docs/NATIVE-CLIENTS.md)。API 网页会话见[会话管理](docs/SESSIONS.md)；逐工具审批、附件和远端 DSW 自动部署仍按[实施路线](docs/ROADMAP.md)推进。
+**当前交付：配置工具、本地隔离工作区与控制面板。** 已实现加密导入／导出、Pi v1 配置迁移、QEMU 工作区、专用出口、文件操作与官方 Agent SDK 接入。提供 Windows／WSL2 和 Linux／QEMU 的统一面板、文件、会话、项目桌面和训练 API 接入；验证边界见[验收记录](docs/ACCEPTANCE.md)。账号 CLI／Desktop 的 guest 安装和画面入口见[官方账号客户端](docs/NATIVE-CLIENTS.md)。API 网页会话支持拖入附件、截图粘贴、联网搜索和网页读取，见[会话管理](docs/SESSIONS.md)；逐工具审批和远端 DSW 自动部署仍按[实施路线](docs/ROADMAP.md)推进。
 
 订阅附送的 API 额度适用于自建工作台的 Agent SDK 会话；原生 Desktop 的 Code 会话另按其适用方式计费。[入口与额度](docs/DESIGN.md#入口与额度)
 

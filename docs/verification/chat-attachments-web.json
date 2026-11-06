@@ -1,0 +1,66 @@
+{
+  "date": "2026-11-06",
+  "platform": "Windows / WSL2",
+  "model": "claude-opus-5-5",
+  "runtimeDigest": "6868628b62624e7fe3ca2bc6db983bbb8d16460c53b40d96ea7c62317a17286c",
+  "boundary": {
+    "passed": true,
+    "directTcpDenied": true,
+    "directDnsDenied": true,
+    "metadataDenied": true,
+    "proxyStoppedDenied": true
+  },
+  "attachments": {
+    "browserImagePaste": true,
+    "refreshRetainsReadyDraft": true,
+    "removeDraftReference": true,
+    "uploadedImageByteExact": true,
+    "uploadedUtf8ByteExact": true,
+    "sdkImageRead": true,
+    "sdkUtf8Read": true,
+    "duplicateUploadSameIdentity": true,
+    "duplicateMessageNoExtraTurn": true,
+    "dropHandlerSessionPinningUnitTest": true,
+    "nativeExplorerDropIntoBrowser": "not-exercised",
+    "fileChooserAutomation": "blocked-by-browser-extension-file-url-permission"
+  },
+  "web": {
+    "sdkWebSearch": true,
+    "source": "https://www.iana.org/help/example-domains",
+    "serverWebFetch": true,
+    "fetchedUrl": "https://example.com/",
+    "fetchedTitle": "Example Domain",
+    "privateUrlRejectionUnitTest": true,
+    "connectAllowlistExpanded": false,
+    "forcedToolChoiceRemovedAfterModel400": true
+  },
+  "billing": {
+    "sdkSessionCumulativeEstimateUsd": 0.1942088,
+    "additionalFetchUsage": {
+      "input_tokens": 3999,
+      "output_tokens": 222,
+      "web_fetch_requests": 1
+    },
+    "note": "Fetch API usage is separate from the SDK estimate; provider invoice is authoritative."
+  },
+  "ui": {
+    "desktop": true,
+    "width390NoPageHorizontalOverflow": true,
+    "safeSourceLinks": true,
+    "publicAccess": "login-required-this-run",
+    "logs": "Extension connection errors observed; no application error banner in completed flow."
+  },
+  "tests": {
+    "passed": 151,
+    "skipped": 12,
+    "failed": 0
+  },
+  "computeNodesReady": 2,
+  "notTested": [
+    "physical-mobile",
+    "cold-boot",
+    "native-Claude-account-attachments",
+    "provider-account-credit-balance",
+    "authenticated-public-upload"
+  ]
+}

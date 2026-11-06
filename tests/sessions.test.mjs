@@ -85,6 +85,31 @@ test('verification, malformed history and path traversal fail closed',t=>{
   assert.throws(()=>f.manager.snapshot(s.id),/session_history_requires_reconciliation/);
 });
 
+test('attachments bind to their session, survive restart, and enter idempotent message identity',async t=>{
+  const f=fixture(t),a=f.make(),b=f.make(),bytes=Buffer.from('中文 attachment'),input={requestId:uuid(),name:'数据.txt',data:bytes.toString('base64'),sha256:crypto.createHash('sha256').update(bytes).digest('hex')};
+  const operation=f.manager.upload(a.id,input);
+  assert.throws(()=>f.manager.start(b.id,{prompt:'wait',requestId:uuid()}),/workspace_busy/);
+  f.calls[0].resolve({code:0,stdout:JSON.stringify({sha256:input.sha256,bytes:bytes.length})});
+  const attachment=await operation;
+  assert.equal(attachment.path,`.starport-attachments/${a.id}/${input.requestId}/数据.txt`);
+  assert.equal((await f.manager.upload(a.id,input)).id,attachment.id);assert.equal(f.calls.length,1);
+  await assert.rejects(f.manager.upload(a.id,{...input,name:'changed'}),/request_id_conflict/);
+  assert.throws(()=>f.manager.start(b.id,{prompt:'read',attachments:[attachment.id],requestId:uuid()}),/attachment_not_found/);
+  const restored=createSessions(f.state,f.options),message={prompt:'',attachments:[attachment.id],requestId:uuid()};
+  restored.start(a.id,message);assert.equal(f.calls[1].request.request.attachments[0].name,'数据.txt');
+  assert.equal(restored.start(a.id,message).reused,true);
+  assert.throws(()=>restored.start(a.id,{...message,prompt:'different'}),/request_id_conflict/);
+  assert.equal(restored.snapshot(a.id).events[0].prompt,'');await f.finish(f.calls[1]);
+});
+
+test('an upload with a lost runtime acknowledgement can reconcile using the same identity',async t=>{
+  const f=fixture(t),s=f.make(),input={requestId:uuid(),name:'a.txt',data:'eA==',sha256:crypto.createHash('sha256').update('x').digest('hex')};
+  const first=f.manager.upload(s.id,input),failed=assert.rejects(first,/disconnected/);f.calls[0].reject(Error('disconnected'));await failed;
+  assert.throws(()=>f.manager.start(s.id,{prompt:'read',attachments:[input.requestId],requestId:uuid()}),/attachment_not_found/);
+  const second=f.manager.upload(s.id,input);assert.equal(f.calls[1].request.request.id,input.requestId);
+  f.calls[1].resolve({code:0,stdout:JSON.stringify({sha256:input.sha256,bytes:1})});assert.equal((await second).ready,true);
+});
+
 test('session HTTP routes require authentication, Origin and CSRF, with idempotent creation',async t=>{
   const state=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'starport-chat-http-'));
   const egress={enabled:true,modelReady:false,proxyPort:9,apiPort:9,pause(){},resume(){},close(){}};
@@ -98,6 +123,10 @@ test('session HTTP routes require authentication, Origin and CSRF, with idempote
   const headers={Cookie,'X-CSRF-Token':status.csrf};
   assert.equal((await post('/api/sessions',input,{...headers,Origin:'https://other.example.com'})).status,403);
   const created=await post('/api/sessions',input,headers);assert.equal(created.status,201);const s=await created.json();
+  const uploadRoute='/api/sessions/'+s.id+'/attachments';
+  assert.equal((await post(uploadRoute,{},{})).status,403);
+  assert.equal((await post(uploadRoute,{},{Cookie})).status,403);
+  assert.equal((await post(uploadRoute,{},{...headers,Origin:'https://other.example.com'})).status,403);
   assert.equal((await(await post('/api/sessions',input,headers)).json()).id,s.id);
   assert.equal((await post('/api/sessions/'+s.id+'/messages',{prompt:'run',requestId:uuid()},headers)).status,403);
 });
