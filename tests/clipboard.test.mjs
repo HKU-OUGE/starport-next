@@ -63,7 +63,7 @@ with tempfile.TemporaryDirectory() as d:
 });
 
 test('image mode survives configuration export and reports its scope',t=>{
- const dir=fs.mkdtempSync(path.join(os.tmpdir(),'image-clipboard-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const dir=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'image-clipboard-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
  const file=path.join(dir,'host.json');fs.writeFileSync(file,JSON.stringify({format:'starport-host-control',version:1,runtime:{kind:'qemu',state:'vm'},seamless:true,seamlessClipboard:'text-image'}));
  const options=loadControlOptions(file),config=snapshotControl(file).value.config;validateConfig(config);
  assert.equal(config.workspace.seamlessClipboard,'text-image');const r=createProjectRuntime(dir,{launch:()=>{},...options});assert.equal(r.status().clipboard,'bidirectional-text-image');r.close();
